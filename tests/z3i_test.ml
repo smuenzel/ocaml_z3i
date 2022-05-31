@@ -1,5 +1,4 @@
 open! Core
-open! Camlsoup_lib
 
 let%expect_test "popcount" =
   let open Z3i in

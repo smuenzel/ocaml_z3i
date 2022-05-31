@@ -240,6 +240,8 @@ module type Z3i = sig
   module Sort : Sort with module Types := Types
   module Bitvector : Bitvector with module Types := Types
   module Model : Model with module Types := Types
+  module Solver : Solver
+    with module Types := Types
   module Solver_result : Solver_result
     with module Types := Types
      and type 'a t = 'a Types.Solver_result.t

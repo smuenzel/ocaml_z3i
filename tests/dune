@@ -1,6 +1,6 @@
 (library
   (name camlsoup_test_z3i)
-  (libraries core camlsoup_lib z3)
+  (libraries core z3i z3)
   (inline_tests)
   (preprocess (pps ppx_expect ppx_jane))
   )
