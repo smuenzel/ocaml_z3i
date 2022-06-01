@@ -127,6 +127,7 @@ and Bitvector : Bitvector
   let nand = Wrap.binary ZBitvector.mk_nand
   let nor = Wrap.binary ZBitvector.mk_nor
   let xnor = Wrap.binary ZBitvector.mk_xnor
+  let not = Wrap.unary ZBitvector.mk_not
 
   let neg = Wrap.unary ZBitvector.mk_neg
   let add = Wrap.binary ZBitvector.mk_add
@@ -170,6 +171,26 @@ and Bitvector : Bitvector
 
   let is_zero e =
     Boolean.eq e (Bitvector.Numeral.int_e e 0)
+
+  module Set = struct
+    let const_empty ctx bits =
+      Bitvector.Numeral.int
+        (Sort.create_bitvector ctx ~bits)
+        0
+
+    let union = or_
+    let inter = and_
+    let complement = not
+    let diff a b = inter a (complement b)
+    let symmdiff = xor
+
+    let is_empty = is_zero
+    let is_subset a ~of_ = is_empty (diff a of_)
+
+    let has_max_one_member = is_power_of_two_or_zero
+    let has_single_member = is_power_of_two
+
+  end
 
   module Numeral = struct
     let bool ctx bools =

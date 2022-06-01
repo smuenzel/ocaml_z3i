@@ -83,6 +83,7 @@ module type Bitvector = sig
   val nand : Expr.t -> Expr.t -> Expr.t
   val nor : Expr.t -> Expr.t -> Expr.t
   val xnor : Expr.t -> Expr.t -> Expr.t
+  val not : Expr.t -> Expr.t
 
   val neg : Expr.t -> Expr.t
   val add : Expr.t -> Expr.t -> Expr.t
@@ -109,6 +110,21 @@ module type Bitvector = sig
     val int_e : Expr.t -> int -> Expr.t
   end
 
+  module Set : sig
+    val const_empty : Context.t -> int -> Expr.t
+
+    val union : Expr.t -> Expr.t -> Expr.t
+    val inter : Expr.t -> Expr.t -> Expr.t
+    val complement : Expr.t -> Expr.t
+    val diff : Expr.t -> Expr.t -> Expr.t
+    val symmdiff : Expr.t -> Expr.t -> Expr.t
+
+    val is_empty : Expr.t -> Expr.t
+    val is_subset : Expr.t -> of_:Expr.t -> Expr.t
+    val has_max_one_member : Expr.t -> Expr.t
+    val has_single_member : Expr.t -> Expr.t
+
+  end
 end
 
 module type Model = sig
