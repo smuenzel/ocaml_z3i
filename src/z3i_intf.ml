@@ -27,7 +27,7 @@ module type Expr = sig
   module Types : Types
   open Types
 
-  type t = Z3.Expr.expr [@@deriving sexp_of]
+  type t = Types.Expr.t [@@deriving sexp_of]
 
   val context : t -> Context.t
   val sort : t -> Sort.t
@@ -50,7 +50,7 @@ end
 module type Context = sig
   module Types : Types
 
-  type t = Z3.context
+  type t = Types.Context.t
 
   val create : ?model:bool -> ?proof:bool -> unit -> t
 
@@ -61,7 +61,7 @@ module type Sort = sig
   module Types : Types
   open Types
 
-  type t = Z3.Sort.sort
+  type t = Types.Sort.t
 
   val context : t -> Context.t
 
@@ -115,7 +115,7 @@ module type Model = sig
   module Types : Types
   open Types
 
-  type t = Z3.Model.model [@@deriving sexp_of]
+  type t = Types.Model.t [@@deriving sexp_of]
 
   val to_string : t -> string
 

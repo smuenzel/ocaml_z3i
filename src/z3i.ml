@@ -147,15 +147,16 @@ and Bitvector : Bitvector
     let result_bit_size = Option.value ~default:size result_bit_size in
     let context = Expr.context expr in
     let acc_bit_size = Int.ceil_log2 size in
+    assert (acc_bit_size <= result_bit_size);
     List.init size
       ~f:(fun i ->
           (* CR smuenzel: With context *)
           ZBitvector.mk_extract context i i expr
           |> ZBitvector.mk_zero_ext context (acc_bit_size - 1)
         )
-  |> List.reduce_balanced_exn
-       ~f:(ZBitvector.mk_add context)
-  |> ZBitvector.mk_zero_ext context (result_bit_size - acc_bit_size)
+    |> List.reduce_balanced_exn
+      ~f:(ZBitvector.mk_add context)
+    |> ZBitvector.mk_zero_ext context (result_bit_size - acc_bit_size)
 
   let is_power_of_two_or_zero e =
     Bitvector.and_ e (Bitvector.sub e (Bitvector.Numeral.int_e e 1))
