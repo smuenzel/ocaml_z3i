@@ -224,10 +224,18 @@ module type Boolean_ops = sig
   module Types : Types
   open Types
   type 'a wrap
-  val and_ : (Expr.t list -> Expr.t) wrap
-  val not : (Expr.t -> Expr.t) wrap
-  val eq : (Expr.t -> Expr.t -> Expr.t) wrap
-  val neq : (Expr.t -> Expr.t -> Expr.t) wrap
+  type n_ary := (Expr.t list -> Expr.t) wrap
+  type binary := (Expr.t -> Expr.t -> Expr.t) wrap
+  type unary := (Expr.t -> Expr.t) wrap
+  val and_ : n_ary
+  val or_ : n_ary
+  val xor : binary
+  val not : unary
+
+  val iff : binary
+
+  val eq : binary
+  val neq : binary
 end
 
 module type Boolean = sig
@@ -238,6 +246,13 @@ module type Boolean = sig
     Boolean_ops with type 'a wrap := Context.t -> 'a and module Types := Types
 
   include Boolean_ops with type 'a wrap := 'a and module Types := Types
+
+  module Numeral : sig
+    val false_ : Context.t -> Expr.t
+    val true_ : Context.t -> Expr.t
+    val bool : Context.t -> bool -> Expr.t
+
+  end
 end
 
 module rec Types : Types

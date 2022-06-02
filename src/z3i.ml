@@ -94,11 +94,22 @@ and Sort : Sort
 end
 
 and Wrap : sig
-  (* val list : (Context.t -> Expr.t list -> 'a) -> (Expr.t list -> 'a) *)
-  val binary : (Context.t -> Expr.t -> Expr.t -> 'a) -> (Expr.t -> Expr.t -> 'a)
-  val unary : (Context.t -> Expr.t -> 'a) -> (Expr.t -> 'a)
+  module type T = sig
+    type 'a wrap
+
+    val list : (Context.t -> 'r) -> ((Expr.t list -> 'a) as 'r) wrap
+    val binary : (Context.t -> 'r) -> ((Expr.t -> Expr.t -> 'a) as 'r) wrap
+    val unary : (Context.t -> 'r) -> ((Expr.t -> 'a) as 'r) wrap
+  end
+
+  include T with type 'a wrap = 'a
+
+  module Noop : T with type 'a wrap = Context.t -> 'a
 end =  struct
-  (*
+  module type T = Wrap.T
+
+  type 'a wrap = 'a
+
   let list f = fun expr_list ->
     match expr_list with
     | [] -> raise_s [%message "empty list"]
@@ -106,10 +117,17 @@ end =  struct
       f
         (Expr.context expr)
         list
-     *)
 
   let unary f = fun a -> f (Expr.context a) a
   let binary f = fun a b -> f (Expr.context a) a b
+
+  module Noop = struct
+    type 'a wrap = Context.t -> 'a
+
+    let list f = f
+    let unary f = f
+    let binary f = f
+  end
 end
 
 and Bitvector : Bitvector
@@ -389,27 +407,27 @@ and Boolean : Boolean
 
   module ZBoolean = Z3.Boolean
 
-  module With_context =  struct
-    let and_ = ZBoolean.mk_and
-    let not = ZBoolean.mk_not
+  module Ops(Wrap : Wrap.T) = struct
+    let and_ = Wrap.list ZBoolean.mk_and
+    let or_ = Wrap.list ZBoolean.mk_or
+    let not = Wrap.unary ZBoolean.mk_not
+    let xor = Wrap.binary ZBoolean.mk_xor
 
-    let eq = ZBoolean.mk_eq
-    let neq ctx a b = not ctx (eq ctx a b)
+    let iff = Wrap.binary ZBoolean.mk_iff
 
-    let wrap_unary f = fun a -> f (Expr.context a) a
-    let wrap_binary f = fun a b -> f (Expr.context a) a b
+    let eq = Wrap.binary ZBoolean.mk_eq
+    let neq = Wrap.binary (fun ctx a b -> ZBoolean.mk_not ctx (ZBoolean.mk_eq ctx a b))
 
-    let wrap_list f = fun expr_list ->
-      match expr_list with
-      | [] -> raise_s [%message "empty list"]
-      | (expr :: _) as list ->
-        f
-          (Expr.context expr)
-          list
   end
 
-  let and_ = With_context.(wrap_list and_)
-  let not = With_context.(wrap_unary not)
-  let eq = With_context.(wrap_binary eq)
-  let neq = With_context.(wrap_binary neq)
+  module With_context = Ops(Wrap.Noop)
+
+  include Ops(Wrap)
+
+  module Numeral = struct
+    let false_ ctx = ZBoolean.mk_false ctx
+    let true_ ctx = ZBoolean.mk_true ctx
+
+    let bool ctx bool = ZBoolean.mk_val ctx bool
+  end
 end
