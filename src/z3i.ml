@@ -315,6 +315,7 @@ and Optimize : Optimize
 = struct
   type t = Types.Optimize.t
 
+
   let context t =
     Z3native.context_of_optimize (Optimize.Native.to_native t)
     |> Context.Native.unsafe_of_native
