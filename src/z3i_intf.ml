@@ -77,6 +77,8 @@ module type Bitvector = sig
   val is_bv : Expr.t -> bool
   val size : Sort.t -> int
 
+  (* CR smuenzel: add With_context *)
+
   val and_ : Expr.t -> Expr.t -> Expr.t
   val or_ : Expr.t -> Expr.t -> Expr.t
   val xor : Expr.t -> Expr.t -> Expr.t
@@ -103,13 +105,6 @@ module type Bitvector = sig
   val is_power_of_two : Expr.t -> Expr.t
   val is_power_of_two_or_zero : Expr.t -> Expr.t
 
-  module Numeral : sig
-    val bool : Context.t -> bool list -> Expr.t
-
-    val int : Sort.t -> int -> Expr.t
-    val int_e : Expr.t -> int -> Expr.t
-  end
-
   module Set : sig
     val const_empty : Context.t -> int -> Expr.t
 
@@ -123,8 +118,15 @@ module type Bitvector = sig
     val is_subset : Expr.t -> of_:Expr.t -> Expr.t
     val has_max_one_member : Expr.t -> Expr.t
     val has_single_member : Expr.t -> Expr.t
-
   end
+
+  module Numeral : sig
+    val bool : Context.t -> bool list -> Expr.t
+
+    val int : Sort.t -> int -> Expr.t
+    val int_e : Expr.t -> int -> Expr.t
+  end
+
 end
 
 module type Model = sig
@@ -227,6 +229,7 @@ module type Boolean_ops = sig
   type n_ary := (Expr.t list -> Expr.t) wrap
   type binary := (Expr.t -> Expr.t -> Expr.t) wrap
   type unary := (Expr.t -> Expr.t) wrap
+
   val and_ : n_ary
   val or_ : n_ary
   val xor : binary
@@ -251,7 +254,6 @@ module type Boolean = sig
     val false_ : Context.t -> Expr.t
     val true_ : Context.t -> Expr.t
     val bool : Context.t -> bool -> Expr.t
-
   end
 end
 
