@@ -166,6 +166,12 @@ and Bitvector : Bitvector
 
   let concat = Wrap.binary ZBitvector.mk_concat
   let repeat expr ~count = ZBitvector.mk_repeat (Expr.context expr) count expr
+
+  let broadcast_single single_bit target =
+    let target_size = size target in
+    assert (size_e single_bit = 1);
+    repeat single_bit ~count:target_size
+
   let extract expr ~high ~low = ZBitvector.mk_extract (Expr.context expr) high low expr
   let extract_single expr bit = extract expr ~high:bit ~low:bit
   let zero_extend expr ~extra_zeros = ZBitvector.mk_zero_ext (Expr.context expr) extra_zeros expr

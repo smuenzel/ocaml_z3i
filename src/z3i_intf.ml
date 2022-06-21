@@ -94,6 +94,7 @@ module type Bitvector = sig
 
   val concat : Expr.t -> Expr.t -> Expr.t
   val repeat : Expr.t -> count:int -> Expr.t
+  val broadcast_single : Expr.t -> Sort.t -> Expr.t
   val extract : Expr.t -> high:int -> low:int -> Expr.t
   val extract_single : Expr.t -> int -> Expr.t
   val zero_extend : Expr.t -> extra_zeros:int -> Expr.t
@@ -292,7 +293,25 @@ module type Z3i_internal = sig
   module Boolean : Boolean with module Types := Types
 end
 
+module type Mux = sig
+  module Types : Types
+  open Types
+
+  type t =
+    { selector : Expr.t
+    ; output : Expr.t
+    ; assertions : Expr.t list
+    }
+
+  val create
+    :  selector_symbol:Symbol.t
+    -> Expr.t list
+    -> t
+end
+
 module type Z3i = sig
   include Z3i_internal
+
+  module Mux : Mux with module Types := Types
 
 end
