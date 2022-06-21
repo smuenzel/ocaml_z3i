@@ -97,6 +97,4 @@ let%expect_test "mux" =
   |> [%sexp_of: Model.t Solver_result.t]
   |> print_s;
   [%expect {|
-    (Satisfiable
-     ((define-fun k!0 () (_ BitVec 64) #x7ffffffffffffffe)
-      (define-fun k!1 () (_ BitVec 64) #x7ffffffffbfffffd))) |}]
+    (Satisfiable ((define-fun sel () (_ BitVec 2) #b01))) |}]
