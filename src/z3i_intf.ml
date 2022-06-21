@@ -300,6 +300,15 @@ module type Quantifier = sig
 
 end
 
+module type Pattern = sig
+  module Types : Types
+  open Types
+
+  type t = Pattern.t
+
+  val create : Expr.t list -> t
+end
+
 module rec Types : Types
   with type Context.t = Z3.context
    and type Sort.t = Z3.Sort.sort
@@ -327,6 +336,7 @@ module type Z3i_internal = sig
   module Symbol : Symbol with module Types := Types
   module Boolean : Boolean with module Types := Types
   module Quantifier : Quantifier with module Types := Types
+  module Pattern : Pattern with module Types := Types
 end
 
 module type Mux = sig

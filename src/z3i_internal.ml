@@ -530,3 +530,14 @@ and Quantifier : Quantifier
       skolem_id
 
 end
+
+and Pattern : Pattern
+  with module Types := Types
+= struct
+  type t = Z3.Quantifier.Pattern.pattern
+
+  let create exprs =
+    Z3.Quantifier.mk_pattern
+      (Expr.context (List.hd_exn exprs))
+      exprs
+end
