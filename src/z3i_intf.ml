@@ -276,7 +276,7 @@ module rec Types : Types
    and type Optimize.t = Z3.Optimize.optimize
   = Types
 
-module type Z3i = sig
+module type Z3i_internal = sig
   module Context : Context with module Types := Types
   module Expr : Expr with module Types := Types
   module Sort : Sort with module Types := Types
@@ -290,5 +290,9 @@ module type Z3i = sig
   module Optimize : Optimize with module Types := Types
   module Symbol : Symbol with module Types := Types
   module Boolean : Boolean with module Types := Types
+end
+
+module type Z3i = sig
+  include Z3i_internal
 
 end
