@@ -471,3 +471,62 @@ and Boolean : Boolean
     let bool ctx bool = ZBoolean.mk_val ctx bool
   end
 end
+
+and Quantifier : Quantifier
+  with module Types := Types
+= struct
+
+  module ZQuantifier = Z3.Quantifier
+
+  type t = ZQuantifier.quantifier
+
+  let of_expr = ZQuantifier.quantifier_of_expr
+  let to_expr = ZQuantifier.expr_of_quantifier
+
+  let forall
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?(patterns = [])
+      ?(nopatterns = [])
+      variables
+      ~body
+    : t
+    =
+    let head_sort, _ = List.hd_exn variables in
+    let sorts, symbols = List.unzip variables in
+    let ctx = Sort.context head_sort in
+    ZQuantifier.mk_forall
+      ctx
+      sorts
+      symbols
+      body
+      weight
+      patterns
+      nopatterns
+      quantifier_id
+      skolem_id
+
+  let forall_const
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?(patterns = [])
+      ?(nopatterns = [])
+      variables
+      ~body
+    : t
+    =
+    let head_expr = List.hd_exn variables in
+    let ctx = Expr.context head_expr in
+    ZQuantifier.mk_forall_const
+      ctx
+      variables
+      body
+      weight
+      patterns
+      nopatterns
+      quantifier_id
+      skolem_id
+
+end

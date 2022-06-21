@@ -14,6 +14,8 @@ module type Types = sig
       | Unknown of string
       | Satisfiable of 'a
   end
+  module Quantifier : T
+  module Pattern : T
 end
 
 module type Native = sig
@@ -267,6 +269,37 @@ module type Boolean = sig
   end
 end
 
+module type Quantifier = sig
+  module Types : Types
+  open Types
+
+  type t = Quantifier.t
+
+  val to_expr : t -> Expr.t
+  val of_expr : Expr.t -> t
+
+  val forall
+    :  ?weight:int
+    -> ?quantifier_id:Symbol.t
+    -> ?skolem_id:Symbol.t
+    -> ?patterns:Pattern.t list
+    -> ?nopatterns:Expr.t list
+    -> (Sort.t * Symbol.t) list
+    -> body:Expr.t
+    -> t
+
+  val forall_const
+    :  ?weight:int
+    -> ?quantifier_id:Symbol.t
+    -> ?skolem_id:Symbol.t
+    -> ?patterns:Pattern.t list
+    -> ?nopatterns:Expr.t list
+    -> Expr.t list
+    -> body:Expr.t
+    -> t
+
+end
+
 module rec Types : Types
   with type Context.t = Z3.context
    and type Sort.t = Z3.Sort.sort
@@ -275,6 +308,8 @@ module rec Types : Types
    and type Model.t = Z3.Model.model
    and type Solver.t = Z3.Solver.solver
    and type Optimize.t = Z3.Optimize.optimize
+   and type Quantifier.t = Z3.Quantifier.quantifier
+   and type Pattern.t = Z3.Quantifier.Pattern.pattern
   = Types
 
 module type Z3i_internal = sig
@@ -291,6 +326,7 @@ module type Z3i_internal = sig
   module Optimize : Optimize with module Types := Types
   module Symbol : Symbol with module Types := Types
   module Boolean : Boolean with module Types := Types
+  module Quantifier : Quantifier with module Types := Types
 end
 
 module type Mux = sig
