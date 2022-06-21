@@ -99,6 +99,7 @@ and Wrap : sig
 
     val list : (Context.t -> 'r) -> ((Expr.t list -> 'a) as 'r) wrap
     val binary : (Context.t -> 'r) -> ((Expr.t -> Expr.t -> 'a) as 'r) wrap
+    val ternary : (Context.t -> 'r) -> ((Expr.t -> Expr.t -> Expr.t -> 'a) as 'r) wrap
     val unary : (Context.t -> 'r) -> ((Expr.t -> 'a) as 'r) wrap
   end
 
@@ -120,6 +121,7 @@ end =  struct
 
   let unary f = fun a -> f (Expr.context a) a
   let binary f = fun a b -> f (Expr.context a) a b
+  let ternary f = fun a b c -> f (Expr.context a) a b c
 
   module Noop = struct
     type 'a wrap = Context.t -> 'a
@@ -127,6 +129,7 @@ end =  struct
     let list f = f
     let unary f = f
     let binary f = f
+    let ternary f = f
   end
 end
 
@@ -150,6 +153,16 @@ and Bitvector : Bitvector
   let neg = Wrap.unary ZBitvector.mk_neg
   let add = Wrap.binary ZBitvector.mk_add
   let sub = Wrap.binary ZBitvector.mk_sub
+
+  let add_overflow ~signed =
+    let mk_add_overflow ctx a b =
+      Boolean.With_context.ite
+        ctx
+        (ZBitvector.mk_add_no_overflow ctx a b signed)
+        (Bitvector.Numeral.bit0 ctx)
+        (Bitvector.Numeral.bit1 ctx)
+    in
+    Wrap.binary mk_add_overflow
 
   let concat = Wrap.binary ZBitvector.mk_concat
   let repeat expr ~count = ZBitvector.mk_repeat (Expr.context expr) count expr
@@ -190,6 +203,15 @@ and Bitvector : Bitvector
   let is_zero e =
     Boolean.eq e (Bitvector.Numeral.int_e e 0)
 
+  let sign a =
+    extract_single a (size_e a - 1)
+
+  let parity a =
+    let size = size_e a in
+    (* No mk_redxor *)
+    List.init size ~f:(fun i -> extract_single a i)
+    |> List.reduce_balanced_exn ~f:xor
+
   module Set = struct
     let const_empty ctx bits =
       Bitvector.Numeral.int
@@ -219,6 +241,13 @@ and Bitvector : Bitvector
         bools
       |> Expr.Native.unsafe_of_native
 
+    (* CR smuenzel: figure out how to make OP_BIT0 *)
+    let bit0 ctx =
+      bool ctx [ false ]
+
+    let bit1 ctx =
+      bool ctx [ true ]
+
     let int sort i =
       Z3.Expr.mk_numeral_int (Sort.context sort) i sort
 
@@ -236,7 +265,7 @@ and Model : Model
   module ZModel = Z3.Model
 
   let to_string t = ZModel.to_string t
-  let sexp_of_t t = Sexp.of_string (to_string t)
+  let sexp_of_t t = Sexp.List (Sexp.of_string_many (to_string t))
 
   let eval t expr ~apply_model_completion = ZModel.eval t expr apply_model_completion
 
@@ -396,6 +425,8 @@ and Symbol : Symbol
 
   let of_int = Z3.Symbol.mk_int
 
+  let of_string = Z3.Symbol.mk_string
+
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.symbol)
     let unsafe_of_native = (Obj.magic : Z3native.symbol -> t)
@@ -415,6 +446,8 @@ and Boolean : Boolean
     let xor = Wrap.binary ZBoolean.mk_xor
 
     let iff = Wrap.binary ZBoolean.mk_iff
+
+    let ite = Wrap.ternary ZBoolean.mk_ite
 
     let eq = Wrap.binary ZBoolean.mk_eq
     let neq = Wrap.binary (fun ctx a b -> ZBoolean.mk_not ctx (ZBoolean.mk_eq ctx a b))

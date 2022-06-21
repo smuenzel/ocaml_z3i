@@ -89,6 +89,7 @@ module type Bitvector = sig
 
   val neg : Expr.t -> Expr.t
   val add : Expr.t -> Expr.t -> Expr.t
+  val add_overflow : signed:bool -> Expr.t -> Expr.t -> Expr.t
   val sub : Expr.t -> Expr.t -> Expr.t
 
   val concat : Expr.t -> Expr.t -> Expr.t
@@ -104,6 +105,9 @@ module type Bitvector = sig
   val is_zero : Expr.t -> Expr.t
   val is_power_of_two : Expr.t -> Expr.t
   val is_power_of_two_or_zero : Expr.t -> Expr.t
+
+  val sign : Expr.t -> Expr.t
+  val parity : Expr.t -> Expr.t
 
   module Set : sig
     val const_empty : Context.t -> int -> Expr.t
@@ -121,6 +125,8 @@ module type Bitvector = sig
   end
 
   module Numeral : sig
+    val bit0 : Context.t -> Expr.t
+    val bit1 : Context.t -> Expr.t
     val bool : Context.t -> bool list -> Expr.t
 
     val int : Sort.t -> int -> Expr.t
@@ -218,6 +224,7 @@ module type Symbol = sig
   type t = Symbol.t
 
   val of_int : Context.t -> int -> t
+  val of_string : Context.t -> string -> t
 
   module Native : Native with type t := t and type native := Z3native.symbol
 end
@@ -229,6 +236,7 @@ module type Boolean_ops = sig
   type n_ary := (Expr.t list -> Expr.t) wrap
   type binary := (Expr.t -> Expr.t -> Expr.t) wrap
   type unary := (Expr.t -> Expr.t) wrap
+  type ternary := (Expr.t -> Expr.t -> Expr.t -> Expr.t) wrap
 
   val and_ : n_ary
   val or_ : n_ary
@@ -236,6 +244,7 @@ module type Boolean_ops = sig
   val not : unary
 
   val iff : binary
+  val ite : ternary
 
   val eq : binary
   val neq : binary
