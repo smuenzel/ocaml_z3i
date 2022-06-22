@@ -83,8 +83,8 @@ let%expect_test "mux" =
   Solver.add_list s assertions;
   let output =
     Quantifier.forall_const
-      [ value0
-      ; value1
+      [ T value0
+      ; T value1
       ]
       ~body:
         (Boolean.eq output minus_01)

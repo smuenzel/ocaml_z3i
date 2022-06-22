@@ -3,6 +3,7 @@ open Core
 module type With_sort = sig
   type raw
   type 's t = private raw
+  type packed = T : _ t -> packed [@@unboxed]
 end
 
 module type Types = sig
@@ -47,12 +48,18 @@ module With_raw(With_sort : With_sort) = struct
   module type S = sig
     type raw = With_sort.raw
     type 's t = 's With_sort.t [@@deriving sexp_of]
+    type packed = With_sort.packed = T : _ t -> packed [@@unboxed]
 
     val to_raw : _ t -> raw
     val unsafe_of_raw : raw -> _ t
 
     val to_raw_list : _ t list -> raw list
     val unsafe_of_raw_list : raw list -> _ t list
+
+    val pack : _ t -> packed
+    val pack_list : _ t list -> packed list
+
+    val to_raw_unpack_list : packed list -> raw list
 
     module Native : Native1 with type 's t := 's t
   end
@@ -310,31 +317,30 @@ module type Quantifier = sig
   val to_expr : 's t -> 's Expr.t
   val of_expr : 's Expr.t -> 's t
 
-  (* CR smuenzel: variable types are incorrect *)
-  type ('s, 's2) create_quantifer
+  type 's create_quantifer
   := ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
-    -> ?patterns:'s Pattern.t list
-    -> ?nopatterns:'s Expr.t list
-    -> ('s2 Sort.t * Symbol.t) list
+    -> ?patterns:Pattern.packed list
+    -> ?nopatterns:Expr.packed list
+    -> (Sort.packed * Symbol.t) list
     -> body:'s Expr.t
     -> 's t
 
-  type ('s, 's2) create_quantifer_const
+  type 's create_quantifer_const
   := ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
-    -> ?patterns:'s Pattern.t list
-    -> ?nopatterns:'s Expr.t list
-    -> 's2 Expr.t list
+    -> ?patterns:Pattern.packed list
+    -> ?nopatterns:Expr.packed list
+    -> Expr.packed list
     -> body:'s Expr.t
     -> 's t
 
-  val forall : (_,_) create_quantifer
-  val forall_const : (_,_) create_quantifer_const
-  val exists : (_,_) create_quantifer
-  val exists_const : (_,_) create_quantifer_const
+  val forall : 's create_quantifer
+  val forall_const : 's create_quantifer_const
+  val exists : 's create_quantifer
+  val exists_const : 's create_quantifer_const
 end
 
 module type Pattern = sig

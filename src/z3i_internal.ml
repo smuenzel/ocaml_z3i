@@ -7,12 +7,18 @@ module S = S
 module Make_raw(With_sort : With_sort) = struct
   type raw = With_sort.raw
   type 's t = 's With_sort.t
+  type packed = With_sort.packed = T : _ t -> packed [@@unboxed]
 
   let to_raw : _ t -> raw = Obj.magic
   let unsafe_of_raw : raw -> _ t = Obj.magic
 
   let to_raw_list : _ t list -> raw list = Obj.magic
   let unsafe_of_raw_list : raw list -> _ t list = Obj.magic
+
+  let pack : _ t -> packed = Obj.magic
+  let pack_list : _ t list -> packed list = Obj.magic
+
+  let to_raw_unpack_list : packed list -> raw list = Obj.magic
 end
 
 module rec Context : Context 
@@ -605,18 +611,18 @@ and Quantifier : Quantifier
       ~body
     : s t
     =
-    let head_sort, _ = List.hd_exn variables in
+    let Sort.T head_sort, _ = List.hd_exn variables in
     let sorts, symbols = List.unzip variables in
     let ctx = Sort.context head_sort in
     ZQuantifier.mk_quantifier
       ctx
       (match kind with `forall -> true | `exists -> false)
-      (Sort.to_raw_list sorts)
+      (Sort.to_raw_unpack_list sorts)
       symbols
       (Expr.to_raw body)
       weight
-      (Pattern.to_raw_list patterns)
-      (Expr.to_raw_list nopatterns)
+      (Pattern.to_raw_unpack_list patterns)
+      (Expr.to_raw_unpack_list nopatterns)
       quantifier_id
       skolem_id
     |> unsafe_of_raw
@@ -633,16 +639,16 @@ and Quantifier : Quantifier
       ~body
     : s t
     =
-    let head_expr = List.hd_exn variables in
+    let Expr.T head_expr = List.hd_exn variables in
     let ctx = Expr.context head_expr in
     ZQuantifier.mk_quantifier_const
       ctx
       (match kind with `forall -> true | `exists -> false)
-      (Expr.to_raw_list variables)
+      (Expr.to_raw_unpack_list variables)
       (Expr.to_raw body)
       weight
-      (Pattern.to_raw_list patterns)
-      (Expr.to_raw_list nopatterns)
+      (Pattern.to_raw_unpack_list patterns)
+      (Expr.to_raw_unpack_list nopatterns)
       quantifier_id
       skolem_id
     |> unsafe_of_raw
