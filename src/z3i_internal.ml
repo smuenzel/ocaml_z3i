@@ -125,6 +125,47 @@ and Sort : Sort
     Z3native.context_of_ast (Native.to_native t)
     |> Context.Native.unsafe_of_native
 
+  let same (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
+    if Sort.equal (to_raw a) (to_raw b)
+    then Obj.magic (Some Type_equal.T)
+    else None
+
+  let sort_kind (type s) (t : s t) : s S.kind =
+    match Sort.get_sort_kind (to_raw t) with
+    | UNINTERPRETED_SORT -> Obj.magic S.Uninterpreted
+    | BOOL_SORT -> Obj.magic S.Bool
+    | INT_SORT -> Obj.magic S.Int
+    | REAL_SORT -> Obj.magic S.Real
+    | BV_SORT -> Obj.magic S.Bv
+    | ARRAY_SORT -> Obj.magic S.Array
+    | DATATYPE_SORT -> Obj.magic S.Datatype
+    | RELATION_SORT -> Obj.magic S.Relation
+    | FINITE_DOMAIN_SORT -> Obj.magic S.Finite_domain
+    | FLOATING_POINT_SORT -> Obj.magic S.Floating_point
+    | ROUNDING_MODE_SORT -> Obj.magic S.Rounding_mode
+    | SEQ_SORT -> Obj.magic S.Seq
+    | RE_SORT -> Obj.magic S.Re
+    | CHAR_SORT -> Obj.magic S.Char
+    | UNKNOWN_SORT -> Obj.magic S.Unknown
+
+  let same_kind (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
+    match sort_kind a, sort_kind b with
+    | S.Uninterpreted, S.Uninterpreted -> Some T
+    | S.Bool, S.Bool -> Some T
+    | S.Int, S.Int -> Some T
+    | S.Real, S.Real -> Some T
+    | S.Bv, S.Bv -> Some T
+    | S.Array, S.Array -> Some T
+    | S.Datatype, S.Datatype -> Some T
+    | S.Relation, S.Relation -> Some T
+    | S.Finite_domain, S.Finite_domain -> Some T
+    | S.Floating_point, S.Floating_point -> Some T
+    | S.Rounding_mode, S.Rounding_mode -> Some T
+    | S.Seq, S.Seq -> Some T
+    | S.Re, S.Re -> Some T
+    | S.Char, S.Char -> Some T
+    | S.Unknown, S.Unknown -> Some T
+    | _, _ -> None
 end
 
 and Wrap : sig
@@ -552,6 +593,11 @@ and Boolean : Boolean
   end
 
   include Ops(Wrap)
+
+  let is_bool (type s) (e : s Expr.t) : (s, S.bool) Type_equal.t option =
+    if ZBoolean.is_bool (Expr.to_raw e)
+    then Obj.magic (Some Type_equal.T)
+    else None
 
   let eq a b =
     ZBoolean.mk_eq (Expr.context a) (Expr.to_raw a) (Expr.to_raw b)

@@ -25,9 +25,38 @@ module type Types = sig
 end
 
 module S = struct
-  type bv = [ `BV ]
+  type uninterpreted = [ `Uninterpreted ]
   type bool = [ `Bool ]
+  type int = [ `Int ]
+  type real = [ `Real ]
+  type bv = [ `BV ]
+  type array = [ `Array ]
+  type datatype = [ `Datatype ]
+  type relation = [ `Relation ]
+  type finite_domain = [ `Finite_domain ]
+  type floating_point = [ `Floating_point ]
+  type rounding_mode = [ `Rounding_mode ]
+  type seq = [ `Seq ]
+  type re = [ `Re ]
+  type char = [ `Char ]
+  type unknown = [ `Unknown ]
 
+  type _ kind =
+    | Uninterpreted : uninterpreted kind
+    | Bool : bool kind
+    | Int : int kind
+    | Real : real kind
+    | Bv : bv kind
+    | Array : array kind
+    | Datatype : datatype kind
+    | Relation : relation kind
+    | Finite_domain : finite_domain kind
+    | Floating_point : floating_point kind
+    | Rounding_mode : rounding_mode kind
+    | Seq : seq kind
+    | Re : re kind
+    | Char : char kind
+    | Unknown : unknown kind
 end
 
 module type Native = sig
@@ -101,6 +130,11 @@ module type Sort = sig
   open Types
 
   include With_raw(Sort).S with type Native.native := Z3native.sort
+
+  val same : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
+  val same_kind : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
+
+  val sort_kind : 's t -> 's S.kind
 
   val context : _ t -> Context.t
 
@@ -300,6 +334,8 @@ module type Boolean = sig
     Boolean_ops with type 'a wrap := Context.t -> 'a and module Types := Types
 
   include Boolean_ops with type 'a wrap := 'a and module Types := Types
+
+  val is_bool : 's Expr.t -> ('s, S.bool) Type_equal.t option
 
   module Numeral : sig
     val false_ : Context.t -> S.bool Expr.t
