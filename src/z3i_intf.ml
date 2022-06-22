@@ -81,6 +81,8 @@ module type Bitvector = sig
 
   (* CR smuenzel: add With_context *)
 
+  val of_boolean : Expr.t -> Expr.t
+
   val and_ : Expr.t -> Expr.t -> Expr.t
   val or_ : Expr.t -> Expr.t -> Expr.t
   val xor : Expr.t -> Expr.t -> Expr.t
@@ -289,6 +291,26 @@ module type Quantifier = sig
     -> t
 
   val forall_const
+    :  ?weight:int
+    -> ?quantifier_id:Symbol.t
+    -> ?skolem_id:Symbol.t
+    -> ?patterns:Pattern.t list
+    -> ?nopatterns:Expr.t list
+    -> Expr.t list
+    -> body:Expr.t
+    -> t
+
+  val exists
+    :  ?weight:int
+    -> ?quantifier_id:Symbol.t
+    -> ?skolem_id:Symbol.t
+    -> ?patterns:Pattern.t list
+    -> ?nopatterns:Expr.t list
+    -> (Sort.t * Symbol.t) list
+    -> body:Expr.t
+    -> t
+
+  val exists_const
     :  ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t

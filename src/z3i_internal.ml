@@ -142,6 +142,14 @@ and Bitvector : Bitvector
   let size = ZBitvector.get_size
   let size_e e = size (Expr.sort e)
 
+  let of_boolean e =
+    let ctx = Expr.context e in
+    Boolean.With_context.ite
+      ctx
+      e
+      (Bitvector.Numeral.bit1 ctx)
+      (Bitvector.Numeral.bit0 ctx)
+
   let and_ = Wrap.binary ZBitvector.mk_and
   let or_ = Wrap.binary ZBitvector.mk_or
   let xor = Wrap.binary ZBitvector.mk_xor
@@ -483,7 +491,8 @@ and Quantifier : Quantifier
   let of_expr = ZQuantifier.quantifier_of_expr
   let to_expr = ZQuantifier.expr_of_quantifier
 
-  let forall
+  let quantifier
+      (kind : [ `forall| `exists ])
       ?weight
       ?quantifier_id
       ?skolem_id
@@ -496,8 +505,9 @@ and Quantifier : Quantifier
     let head_sort, _ = List.hd_exn variables in
     let sorts, symbols = List.unzip variables in
     let ctx = Sort.context head_sort in
-    ZQuantifier.mk_forall
+    ZQuantifier.mk_quantifier
       ctx
+      (match kind with `forall -> true | `exists -> false)
       sorts
       symbols
       body
@@ -507,7 +517,8 @@ and Quantifier : Quantifier
       quantifier_id
       skolem_id
 
-  let forall_const
+  let quantifier_const
+      (kind : [ `forall| `exists ])
       ?weight
       ?quantifier_id
       ?skolem_id
@@ -519,8 +530,9 @@ and Quantifier : Quantifier
     =
     let head_expr = List.hd_exn variables in
     let ctx = Expr.context head_expr in
-    ZQuantifier.mk_forall_const
+    ZQuantifier.mk_quantifier_const
       ctx
+      (match kind with `forall -> true | `exists -> false)
       variables
       body
       weight
@@ -528,6 +540,11 @@ and Quantifier : Quantifier
       nopatterns
       quantifier_id
       skolem_id
+
+    let forall = quantifier `forall
+    let forall_const = quantifier_const `forall
+    let exists = quantifier `exists
+    let exists_const = quantifier_const `exists
 
 end
 
