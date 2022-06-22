@@ -29,7 +29,7 @@ module S = struct
   type bool = [ `Bool ]
   type int = [ `Int ]
   type real = [ `Real ]
-  type bv = [ `BV ]
+  type bv = [ `Bv ]
   type array = [ `Array ]
   type datatype = [ `Datatype ]
   type relation = [ `Relation ]
@@ -321,6 +321,7 @@ module type Boolean_ops = sig
   val not : unary
 
   val iff : binary
+  val implies : binary
   val ite : (t -> 'a Expr.t -> 'a Expr.t -> 'a Expr.t) wrap
 
   val eq : ('s1 Expr.t -> 's1 Expr.t -> t) wrap

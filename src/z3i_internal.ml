@@ -586,6 +586,7 @@ and Boolean : Boolean
     let xor = Wrap.binary ZBoolean.mk_xor
 
     let iff = Wrap.binary ZBoolean.mk_iff
+    let implies = Wrap.binary ZBoolean.mk_implies
 
     (*
     let eq = Wrap.binary ZBoolean.mk_eq
