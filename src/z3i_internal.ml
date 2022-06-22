@@ -262,15 +262,16 @@ and Bitvector : Bitvector
   let add = Wrap.binary ZBitvector.mk_add
   let sub = Wrap.binary ZBitvector.mk_sub
 
-  let add_overflow ~signed a b =
+  let shift_left t ~count =
+    ZBitvector.mk_shl (Expr.context t) (Expr.to_raw count) (Expr.to_raw count)
+    |> Expr.unsafe_of_raw
+
+  let is_add_overflow ~signed a b : Boolean.t =
     let ctx = Expr.context a in
     let a = (a : _ Expr.t :> Z3.Expr.expr) in
     let b = (b : _ Expr.t :> Z3.Expr.expr) in
-    Boolean.With_context.ite
-      ctx
-      (Expr.unsafe_of_raw (ZBitvector.mk_add_no_overflow ctx a b signed))
-      (Bitvector.Numeral.bit0 ctx)
-      (Bitvector.Numeral.bit1 ctx)
+    Expr.unsafe_of_raw (ZBitvector.mk_add_no_overflow ctx a b signed)
+    |> Boolean.not
 
   let concat = Wrap.binary ZBitvector.mk_concat
 
@@ -376,6 +377,9 @@ and Bitvector : Bitvector
 
     let bit1 ctx =
       bool ctx [ true ]
+
+    let bit0_e e = bit0 (Expr.context e)
+    let bit1_e e = bit1 (Expr.context e)
 
     let int sort i =
       Z3.Expr.mk_numeral_int (Sort.context sort) i (Sort.to_raw sort)

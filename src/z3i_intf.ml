@@ -149,7 +149,7 @@ module type Bitvector = sig
   val is_bv : 's Expr.t -> ('s, S.bv) Type_equal.t option
   val size : S.bv Sort.t -> int
 
-  type t := S.bv Expr.t  
+  type t = S.bv Expr.t  
 
   (* CR smuenzel: add With_context *)
 
@@ -165,8 +165,9 @@ module type Bitvector = sig
 
   val neg : t -> t
   val add : t -> t -> t
-  val add_overflow : signed:bool -> t -> t -> t
   val sub : t -> t -> t
+
+  val shift_left : t -> count:t -> t
 
   val concat : t -> t -> t
   val repeat : t -> count:int -> t
@@ -182,6 +183,7 @@ module type Bitvector = sig
   val is_zero : t -> S.bool Expr.t
   val is_power_of_two : t -> S.bool Expr.t
   val is_power_of_two_or_zero : t -> S.bool Expr.t
+  val is_add_overflow : signed:bool -> t -> t -> S.bool Expr.t
 
   val sign : t -> t
   val parity : t -> t
@@ -204,6 +206,8 @@ module type Bitvector = sig
   module Numeral : sig
     val bit0 : Context.t -> t
     val bit1 : Context.t -> t
+    val bit0_e : _ Expr.t -> t
+    val bit1_e : _ Expr.t -> t
     val bool : Context.t -> bool list -> t
 
     val int : S.bv Sort.t -> int -> t
