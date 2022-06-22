@@ -102,6 +102,7 @@ module type Expr = sig
 
   val context : _ t -> Context.t
   val sort : 's t -> 's Sort.t
+  val sort_kind : 's t -> 's S.kind
 
   val is_numeral : _ t -> bool
 

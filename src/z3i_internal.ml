@@ -61,6 +61,8 @@ and Expr : Expr
     ZExpr.get_sort (to_raw t)
     |> Sort.unsafe_of_raw
 
+  let sort_kind t = Sort.sort_kind (sort t)
+
   let is_numeral = (ZExpr.is_numeral : raw -> bool :> _ t -> bool)
 
   let to_string = (ZExpr.to_string : raw -> string :> _ t -> string)
@@ -233,9 +235,9 @@ and Bitvector : Bitvector
   type t = S.bv Expr.t
 
   let is_bv (type s) (e : s Expr.t) : (s, S.bv) Type_equal.t option =
-    if ZBitvector.is_bv (Expr.to_raw e)
-    then Obj.magic (Some Type_equal.T)
-    else None
+    match Expr.sort_kind e with
+    | S.Bv -> Some T
+    | _ -> None
 
   let size sort = ZBitvector.get_size (sort : _ Sort.t :> Z3.Sort.sort)
   let size_e e = size (Expr.sort e)
@@ -595,9 +597,9 @@ and Boolean : Boolean
   include Ops(Wrap)
 
   let is_bool (type s) (e : s Expr.t) : (s, S.bool) Type_equal.t option =
-    if ZBoolean.is_bool (Expr.to_raw e)
-    then Obj.magic (Some Type_equal.T)
-    else None
+    match Expr.sort_kind e with
+    | S.Bool -> Some T
+    | _ -> None
 
   let eq a b =
     ZBoolean.mk_eq (Expr.context a) (Expr.to_raw a) (Expr.to_raw b)
