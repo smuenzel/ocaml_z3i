@@ -1,0 +1,5 @@
+Z3i
+---
+
+Alternative Z3 interface for OCaml using phantom types for sort kinds.
+Currently incomplete.
