@@ -280,8 +280,8 @@ module type Quantifier = sig
   val to_expr : t -> Expr.t
   val of_expr : Expr.t -> t
 
-  val forall
-    :  ?weight:int
+  type create_quantifer
+  := ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
     -> ?patterns:Pattern.t list
@@ -290,8 +290,8 @@ module type Quantifier = sig
     -> body:Expr.t
     -> t
 
-  val forall_const
-    :  ?weight:int
+  type create_quantifer_const
+  := ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
     -> ?patterns:Pattern.t list
@@ -300,26 +300,10 @@ module type Quantifier = sig
     -> body:Expr.t
     -> t
 
-  val exists
-    :  ?weight:int
-    -> ?quantifier_id:Symbol.t
-    -> ?skolem_id:Symbol.t
-    -> ?patterns:Pattern.t list
-    -> ?nopatterns:Expr.t list
-    -> (Sort.t * Symbol.t) list
-    -> body:Expr.t
-    -> t
-
-  val exists_const
-    :  ?weight:int
-    -> ?quantifier_id:Symbol.t
-    -> ?skolem_id:Symbol.t
-    -> ?patterns:Pattern.t list
-    -> ?nopatterns:Expr.t list
-    -> Expr.t list
-    -> body:Expr.t
-    -> t
-
+  val forall : create_quantifer
+  val forall_const : create_quantifer_const
+  val exists : create_quantifer
+  val exists_const : create_quantifer_const
 end
 
 module type Pattern = sig
