@@ -53,6 +53,8 @@ module With_raw(With_sort : With_sort) = struct
 
     val to_raw_list : _ t list -> raw list
     val unsafe_of_raw_list : raw list -> _ t list
+
+    module Native : Native1 with type 's t := 's t
   end
 end
 
@@ -60,7 +62,7 @@ module type Expr = sig
   module Types : Types
   open Types
 
-  include With_raw(Expr).S
+  include With_raw(Expr).S with type Native.native := Z3native.ast
 
   val context : _ t -> Context.t
   val sort : 's t -> 's Sort.t
@@ -75,8 +77,6 @@ module type Expr = sig
   val const_s : string -> 's Sort.t -> 's t
   val const_i : int -> 's Sort.t -> 's t
   val numeral_int : int -> 's Sort.t -> 's t
-
-  module Native : Native1 with type 's t := 's t and type native := Z3native.ast
 end
 
 module type Context = sig
@@ -93,13 +93,11 @@ module type Sort = sig
   module Types : Types
   open Types
 
-  include With_raw(Sort).S
+  include With_raw(Sort).S with type Native.native := Z3native.sort
 
   val context : _ t -> Context.t
 
   val create_bitvector : Context.t -> bits:int -> S.bv t
-
-  module Native : Native1 with type 's t := 's t and type native := Z3native.sort
 end
 
 module type Bitvector = sig
@@ -343,7 +341,7 @@ module type Pattern = sig
   module Types : Types
   open Types
 
-  include With_raw(Pattern).S
+  include With_raw(Pattern).S with type Native.native := Z3native.pattern
 
   val create : 's Expr.t list -> 's t
 end

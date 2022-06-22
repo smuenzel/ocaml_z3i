@@ -733,4 +733,9 @@ and Pattern : Pattern
       (Expr.context (List.hd_exn exprs))
       (Expr.to_raw_list exprs)
     |> unsafe_of_raw
+
+  module Native = struct
+    let to_native = (Obj.magic : _ t -> Z3native.pattern)
+    let unsafe_of_native = (Obj.magic : Z3native.pattern -> _ t)
+  end
 end
