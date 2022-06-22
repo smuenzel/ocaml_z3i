@@ -2,6 +2,19 @@ open Core
 
 open Z3i_intf
 
+module S = S
+
+module Make_raw(With_sort : With_sort) = struct
+  type raw = With_sort.raw
+  type 's t = 's With_sort.t
+
+  let to_raw : _ t -> raw = Obj.magic
+  let unsafe_of_raw : raw -> _ t = Obj.magic
+
+  let to_raw_list : _ t list -> raw list = Obj.magic
+  let unsafe_of_raw_list : raw list -> _ t list = Obj.magic
+end
+
 module rec Context : Context 
   with module Types := Types
 = struct
@@ -24,30 +37,31 @@ and Expr : Expr
 = struct
 
   module ZExpr = Z3.Expr
-  type t = Types.Expr.t
 
-  let sexp_of_t t = [%sexp_of: string] (Expr.to_string t)
+  include Make_raw(Types.Expr)
+
+  let sexp_of_t _ t = [%sexp_of: string] (Expr.to_string t)
 
   module Native = struct
-    let to_native = (Obj.magic : t -> Z3native.ast)
-    let unsafe_of_native = (Obj.magic : Z3native.ast -> t)
+    let to_native = (Obj.magic : _ t -> Z3native.ast)
+    let unsafe_of_native = (Obj.magic : Z3native.ast -> _ t)
   end
 
   let context t =
     Z3native.context_of_ast (Native.to_native t)
     |> Context.Native.unsafe_of_native
 
-  let sort = ZExpr.get_sort
+  let sort (type s) (t : s t) : s Sort.t =
+    ZExpr.get_sort (to_raw t)
+    |> Sort.unsafe_of_raw
 
-  let is_numeral = ZExpr.is_numeral
+  let is_numeral = (ZExpr.is_numeral : raw -> bool :> _ t -> bool)
 
-  let to_string = ZExpr.to_string
+  let to_string = (ZExpr.to_string : raw -> string :> _ t -> string)
 
   let numeral_to_binary_string_exn t =
     if not (Expr.is_numeral t)
-    then raise_s [%message "not a numeral" (t : t)];
-    if not (Bitvector.is_bv t)
-    then raise_s [%message "not a bitvector" (t : t)];
+    then raise_s [%message "not a numeral" (t : _ t)];
     let length = Bitvector.size (Expr.sort t) in
     let ctx = context t in
     let short_string =
@@ -63,28 +77,42 @@ and Expr : Expr
     |> String.to_array
     |> Array.map ~f:(Char.(=) '1')
 
-  let const symbol sort = ZExpr.mk_const (Sort.context sort) symbol sort
-  let const_s symbol sort = ZExpr.mk_const_s (Sort.context sort) symbol sort
-  let const_i symbol sort =
-    let context = Sort.context sort in
-    ZExpr.mk_const context (Symbol.of_int context symbol) sort
+  let const (type s) symbol (sort : s Sort.t) : s t =
+    ZExpr.mk_const (Sort.context sort) symbol (sort : _ Sort.t :> Z3.Sort.sort)
+    |> unsafe_of_raw
 
-  let mk_const = ZExpr.mk_const
-  let mk_numeral_int = ZExpr.mk_numeral_int
+  let const_s (type s) symbol (sort : s Sort.t) : s t =
+    ZExpr.mk_const_s (Sort.context sort) symbol (sort : _ Sort.t :> Z3.Sort.sort)
+    |> unsafe_of_raw
+
+  let const_i (type s) symbol (sort : s Sort.t) : s t=
+    let context = Sort.context sort in
+    ZExpr.mk_const context (Symbol.of_int context symbol) (sort : _ Sort.t :> Z3.Sort.sort)
+    |> unsafe_of_raw
+
+  let numeral_int (type s) int (sort : s Sort.t) : s t =
+    let context = Sort.context sort in
+    ZExpr.mk_numeral_int context int (sort : _ Sort.t :> Z3.Sort.sort)
+    |> unsafe_of_raw
 end
 
 and Sort : Sort
   with module Types := Types
 = struct
   module Sort = Z3.Sort
-  type t = Types.Sort.t
 
-  let create_bitvector ctx ~bits =
+  include Make_raw(Types.Sort)
+
+  let sexp_of_t _ t =
+    [%sexp_of: string] (Sort.to_string (to_raw t))
+
+  let create_bitvector ctx ~bits : S.bv t =
     Z3.BitVector.mk_sort ctx bits
+    |> unsafe_of_raw
 
   module Native = struct
-    let to_native = (Obj.magic : t -> Z3native.sort)
-    let unsafe_of_native = (Obj.magic : Z3native.sort -> t)
+    let to_native = (Obj.magic : _ t -> Z3native.sort)
+    let unsafe_of_native = (Obj.magic : Z3native.sort -> _ t)
   end
 
   let context t =
@@ -97,10 +125,14 @@ and Wrap : sig
   module type T = sig
     type 'a wrap
 
-    val list : (Context.t -> 'r) -> ((Expr.t list -> 'a) as 'r) wrap
-    val binary : (Context.t -> 'r) -> ((Expr.t -> Expr.t -> 'a) as 'r) wrap
-    val ternary : (Context.t -> 'r) -> ((Expr.t -> Expr.t -> Expr.t -> 'a) as 'r) wrap
-    val unary : (Context.t -> 'r) -> ((Expr.t -> 'a) as 'r) wrap
+    type 's ternary =
+      { f : 'z . ('s Expr.t -> 'z Expr.t -> 'z Expr.t -> 'z Expr.t) wrap
+      } [@@unboxed]
+
+    val list : (Context.t -> Expr.raw list -> Expr.raw) -> ('s Expr.t list -> 's Expr.t) wrap
+    val binary : (Context.t -> Expr.raw -> Expr.raw -> Expr.raw) -> (_ Expr.t -> _ Expr.t -> _ Expr.t) wrap
+    val ternary : (Context.t -> Expr.raw -> Expr.raw -> Expr.raw -> Expr.raw) -> _ ternary
+    val unary : (Context.t -> Expr.raw -> Expr.raw) -> (_ Expr.t -> _ Expr.t) wrap
   end
 
   include T with type 'a wrap = 'a
@@ -111,25 +143,38 @@ end =  struct
 
   type 'a wrap = 'a
 
+  type 's ternary =
+    { f : 'z . ('s Expr.t -> 'z Expr.t -> 'z Expr.t -> 'z Expr.t) wrap
+    } [@@unboxed]
+
   let list f = fun expr_list ->
     match expr_list with
     | [] -> raise_s [%message "empty list"]
     | (expr :: _) as list ->
       f
         (Expr.context expr)
-        list
+        (Expr.to_raw_list list)
+      |> Expr.unsafe_of_raw
 
-  let unary f = fun a -> f (Expr.context a) a
-  let binary f = fun a b -> f (Expr.context a) a b
-  let ternary f = fun a b c -> f (Expr.context a) a b c
+  let unary f = fun a -> f (Expr.context a) (Expr.to_raw a) |> Expr.unsafe_of_raw
+  let binary f = fun a b -> f (Expr.context a) (Expr.to_raw a) (Expr.to_raw b) |> Expr.unsafe_of_raw
+  let ternary f = 
+    { f =
+        fun a b c ->
+          f (Expr.context a) (Expr.to_raw a) (Expr.to_raw b) (Expr.to_raw c) |> Expr.unsafe_of_raw
+    }
 
   module Noop = struct
     type 'a wrap = Context.t -> 'a
 
-    let list f = f
-    let unary f = f
-    let binary f = f
-    let ternary f = f
+    type 's ternary =
+      { f : 'z . ('s Expr.t -> 'z Expr.t -> 'z Expr.t -> 'z Expr.t) wrap
+      } [@@unboxed]
+
+    let list f = Obj.magic f
+    let unary f = Obj.magic f
+    let binary f = Obj.magic f
+    let ternary f = Obj.magic f
   end
 end
 
@@ -138,8 +183,14 @@ and Bitvector : Bitvector
 = struct
   module ZBitvector = Z3.BitVector
 
-  let is_bv = ZBitvector.is_bv
-  let size = ZBitvector.get_size
+  type t = S.bv Expr.t
+
+  let is_bv (type s) (e : s Expr.t) : (s, S.bv) Type_equal.t option =
+    if ZBitvector.is_bv (Expr.to_raw e)
+    then Obj.magic (Some Type_equal.T)
+    else None
+
+  let size sort = ZBitvector.get_size (sort : _ Sort.t :> Z3.Sort.sort)
   let size_e e = size (Expr.sort e)
 
   let of_boolean e =
@@ -162,31 +213,45 @@ and Bitvector : Bitvector
   let add = Wrap.binary ZBitvector.mk_add
   let sub = Wrap.binary ZBitvector.mk_sub
 
-  let add_overflow ~signed =
-    let mk_add_overflow ctx a b =
-      Boolean.With_context.ite
-        ctx
-        (ZBitvector.mk_add_no_overflow ctx a b signed)
-        (Bitvector.Numeral.bit0 ctx)
-        (Bitvector.Numeral.bit1 ctx)
-    in
-    Wrap.binary mk_add_overflow
+  let add_overflow ~signed a b =
+    let ctx = Expr.context a in
+    let a = (a : _ Expr.t :> Z3.Expr.expr) in
+    let b = (b : _ Expr.t :> Z3.Expr.expr) in
+    Boolean.With_context.ite
+      ctx
+      (Expr.unsafe_of_raw (ZBitvector.mk_add_no_overflow ctx a b signed))
+      (Bitvector.Numeral.bit0 ctx)
+      (Bitvector.Numeral.bit1 ctx)
 
   let concat = Wrap.binary ZBitvector.mk_concat
-  let repeat expr ~count = ZBitvector.mk_repeat (Expr.context expr) count expr
+
+  let repeat expr ~count =
+    ZBitvector.mk_repeat (Expr.context expr) count (Expr.to_raw expr)
+    |> Expr.unsafe_of_raw
 
   let broadcast_single single_bit target =
     let target_size = size target in
     assert (size_e single_bit = 1);
     repeat single_bit ~count:target_size
 
-  let extract expr ~high ~low = ZBitvector.mk_extract (Expr.context expr) high low expr
-  let extract_single expr bit = extract expr ~high:bit ~low:bit
-  let zero_extend expr ~extra_zeros = ZBitvector.mk_zero_ext (Expr.context expr) extra_zeros expr
-  let sign_extend expr ~extra_bits = ZBitvector.mk_sign_ext (Expr.context expr) extra_bits expr
+  let extract expr ~high ~low : t =
+    ZBitvector.mk_extract (Expr.context expr) high low (Expr.to_raw expr)
+    |> Expr.unsafe_of_raw
+
+  let extract_single expr bit : t =
+    extract expr ~high:bit ~low:bit
+
+  let zero_extend expr ~extra_zeros =
+    ZBitvector.mk_zero_ext (Expr.context expr) extra_zeros (Expr.to_raw expr)
+    |> Expr.unsafe_of_raw
+
+  let sign_extend expr ~extra_bits =
+    ZBitvector.mk_sign_ext (Expr.context expr) extra_bits (Expr.to_raw expr)
+    |> Expr.unsafe_of_raw
 
   let rotate_left_const expr n =
-    ZBitvector.mk_rotate_left (Expr.context expr) n expr
+    ZBitvector.mk_rotate_left (Expr.context expr) n (Expr.to_raw expr)
+    |> Expr.unsafe_of_raw
 
   let popcount ?result_bit_size expr =
     let size = size_e expr in
@@ -197,27 +262,28 @@ and Bitvector : Bitvector
     List.init size
       ~f:(fun i ->
           (* CR smuenzel: With context *)
-          ZBitvector.mk_extract context i i expr
+          ZBitvector.mk_extract context i i (Expr.to_raw expr)
           |> ZBitvector.mk_zero_ext context (acc_bit_size - 1)
         )
     |> List.reduce_balanced_exn
       ~f:(ZBitvector.mk_add context)
     |> ZBitvector.mk_zero_ext context (result_bit_size - acc_bit_size)
+    |> Expr.unsafe_of_raw
 
   let is_power_of_two_or_zero e =
     Bitvector.and_ e (Bitvector.sub e (Bitvector.Numeral.int_e e 1))
     |> Bitvector.is_zero
 
-  let is_power_of_two e =
+  let is_power_of_two e : S.bool Expr.t =
     Boolean.and_
      [ is_power_of_two_or_zero e
      ; Boolean.not (Bitvector.is_zero e)
      ]
 
-  let is_zero e =
+  let is_zero e : S.bool Expr.t =
     Boolean.eq e (Bitvector.Numeral.int_e e 0)
 
-  let sign a =
+  let sign a : t =
     extract_single a (size_e a - 1)
 
   let parity a =
@@ -263,7 +329,8 @@ and Bitvector : Bitvector
       bool ctx [ true ]
 
     let int sort i =
-      Z3.Expr.mk_numeral_int (Sort.context sort) i sort
+      Z3.Expr.mk_numeral_int (Sort.context sort) i (Sort.to_raw sort)
+      |> Expr.unsafe_of_raw
 
     let int_e expr i =
       int (Expr.sort expr) i
@@ -281,9 +348,13 @@ and Model : Model
   let to_string t = ZModel.to_string t
   let sexp_of_t t = Sexp.List (Sexp.of_string_many (to_string t))
 
-  let eval t expr ~apply_model_completion = ZModel.eval t expr apply_model_completion
+  let eval (type s) t (expr : s Expr.t) ~apply_model_completion =
+    ZModel.eval t (Expr.to_raw expr) apply_model_completion
+    |> (Obj.magic : Expr.raw option -> s Expr.t option)
 
-  let const_interp_e = ZModel.get_const_interp_e
+  let const_interp_e (type s) t (expr : s Expr.t) =
+    ZModel.get_const_interp_e t (Expr.to_raw expr)
+    |> (Obj.magic : Expr.raw option -> s Expr.t option)
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.model)
@@ -331,11 +402,13 @@ and Solver : Solver
 
   let to_string = ZSolver.to_string
 
-  let add_list = ZSolver.add
+  let add_list t exprs =
+    ZSolver.add t (Expr.to_raw_list exprs)
+
   let add t expr = add_list t [ expr ]
 
   let check_and_get_model t exprs : _ Solver_result.t =
-    match ZSolver.check t exprs with
+    match ZSolver.check t (Expr.to_raw_list exprs) with
     | UNSATISFIABLE -> Unsatisfiable
     | UNKNOWN -> Unknown (ZSolver.get_reason_unknown t)
     | SATISFIABLE ->
@@ -369,7 +442,9 @@ and Optimize : Optimize
 
   let to_string t = ZOptimize.to_string t
 
-  let add_list t list = ZOptimize.add t list
+  let add_list t list =
+    ZOptimize.add t (Expr.to_raw_list list)
+
   let add t expr = add_list t [ expr ]
 
   let check_current_and_get_model t : _ Solver_result.t =
@@ -396,7 +471,7 @@ and Optimize : Optimize
   end
 
   module Goal = struct
-    type nonrec t =
+    type nonrec _ t =
       { optimize : t
       ; index : int
       }
@@ -454,6 +529,8 @@ and Boolean : Boolean
   module ZBoolean = Z3.Boolean
 
   module Ops(Wrap : Wrap.T) = struct
+    type t = S.bool Expr.t
+
     let and_ = Wrap.list ZBoolean.mk_and
     let or_ = Wrap.list ZBoolean.mk_or
     let not = Wrap.unary ZBoolean.mk_not
@@ -461,22 +538,42 @@ and Boolean : Boolean
 
     let iff = Wrap.binary ZBoolean.mk_iff
 
-    let ite = Wrap.ternary ZBoolean.mk_ite
-
+    (*
     let eq = Wrap.binary ZBoolean.mk_eq
     let neq = Wrap.binary (fun ctx a b -> ZBoolean.mk_not ctx (ZBoolean.mk_eq ctx a b))
+       *)
 
   end
 
-  module With_context = Ops(Wrap.Noop)
-
   include Ops(Wrap)
 
-  module Numeral = struct
-    let false_ ctx = ZBoolean.mk_false ctx
-    let true_ ctx = ZBoolean.mk_true ctx
+  let eq a b =
+    ZBoolean.mk_eq (Expr.context a) (Expr.to_raw a) (Expr.to_raw b)
+    |> Expr.unsafe_of_raw
 
-    let bool ctx bool = ZBoolean.mk_val ctx bool
+  let neq a b = not (eq a b)
+
+  let ite a b c =
+    (Wrap.ternary ZBoolean.mk_ite).f a b c
+
+  module With_context = struct 
+    include Ops(Wrap.Noop)
+
+    let ite ctx a b c =
+      (Wrap.Noop.ternary ZBoolean.mk_ite).f ctx a b c
+
+    let eq ctx a b =
+      ZBoolean.mk_eq ctx (Expr.to_raw a) (Expr.to_raw b)
+      |> Expr.unsafe_of_raw
+
+    let neq c a b = not c (eq c a b)
+  end
+
+  module Numeral = struct
+    let false_ ctx = ZBoolean.mk_false ctx |> Expr.unsafe_of_raw
+    let true_ ctx = ZBoolean.mk_true ctx |> Expr.unsafe_of_raw
+
+    let bool ctx bool = ZBoolean.mk_val ctx bool |> Expr.unsafe_of_raw
   end
 end
 
@@ -486,12 +583,18 @@ and Quantifier : Quantifier
 
   module ZQuantifier = Z3.Quantifier
 
-  type t = ZQuantifier.quantifier
+  include Make_raw(Types.Quantifier)
 
-  let of_expr = ZQuantifier.quantifier_of_expr
-  let to_expr = ZQuantifier.expr_of_quantifier
+  let of_expr (type s) (e : s Expr.t) : s t =
+    ZQuantifier.quantifier_of_expr (Expr.to_raw e)
+    |> unsafe_of_raw
+
+  let to_expr (type s) (t : s t) : s Expr.t =
+    ZQuantifier.expr_of_quantifier (to_raw t)
+    |> Expr.unsafe_of_raw
 
   let quantifier
+      (type s)
       (kind : [ `forall| `exists ])
       ?weight
       ?quantifier_id
@@ -500,7 +603,7 @@ and Quantifier : Quantifier
       ?(nopatterns = [])
       variables
       ~body
-    : t
+    : s t
     =
     let head_sort, _ = List.hd_exn variables in
     let sorts, symbols = List.unzip variables in
@@ -508,16 +611,18 @@ and Quantifier : Quantifier
     ZQuantifier.mk_quantifier
       ctx
       (match kind with `forall -> true | `exists -> false)
-      sorts
+      (Sort.to_raw_list sorts)
       symbols
-      body
+      (Expr.to_raw body)
       weight
-      patterns
-      nopatterns
+      (Pattern.to_raw_list patterns)
+      (Expr.to_raw_list nopatterns)
       quantifier_id
       skolem_id
+    |> unsafe_of_raw
 
   let quantifier_const
+      (type s)
       (kind : [ `forall| `exists ])
       ?weight
       ?quantifier_id
@@ -526,35 +631,106 @@ and Quantifier : Quantifier
       ?(nopatterns = [])
       variables
       ~body
-    : t
+    : s t
     =
     let head_expr = List.hd_exn variables in
     let ctx = Expr.context head_expr in
     ZQuantifier.mk_quantifier_const
       ctx
       (match kind with `forall -> true | `exists -> false)
-      variables
-      body
+      (Expr.to_raw_list variables)
+      (Expr.to_raw body)
       weight
-      patterns
-      nopatterns
+      (Pattern.to_raw_list patterns)
+      (Expr.to_raw_list nopatterns)
       quantifier_id
       skolem_id
+    |> unsafe_of_raw
 
-    let forall = quantifier `forall
-    let forall_const = quantifier_const `forall
-    let exists = quantifier `exists
-    let exists_const = quantifier_const `exists
+  let forall
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
+    =
+    quantifier `forall
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
 
+  let forall_const
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
+    =
+    quantifier_const `forall
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
+
+  let exists
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
+    =
+    quantifier `exists
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
+
+  let exists_const
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
+    =
+    quantifier_const `exists
+      ?weight
+      ?quantifier_id
+      ?skolem_id
+      ?patterns
+      ?nopatterns
+      variables
+      ~body
 end
 
 and Pattern : Pattern
   with module Types := Types
 = struct
-  type t = Z3.Quantifier.Pattern.pattern
+  include Make_raw(Types.Pattern)
+
+  let sexp_of_t _ t =
+    [%sexp_of:string] (Z3.Quantifier.Pattern.to_string (to_raw t))
 
   let create exprs =
     Z3.Quantifier.mk_pattern
       (Expr.context (List.hd_exn exprs))
-      exprs
+      (Expr.to_raw_list exprs)
+    |> unsafe_of_raw
 end

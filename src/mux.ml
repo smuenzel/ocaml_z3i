@@ -2,9 +2,9 @@ open Core
 open Z3i_internal
 
 type t =
-  { selector : Expr.t
-  ; output : Expr.t
-  ; assertions : Expr.t list
+  { selector : S.bv Expr.t
+  ; output : S.bv Expr.t
+  ; assertions : S.bool Expr.t list
   }
 
 let create

@@ -1,9 +1,14 @@
 open Core
 
+module type With_sort = sig
+  type raw
+  type 's t = private raw
+end
+
 module type Types = sig
   module Context : T
-  module Expr : T
-  module Sort : T
+  module Expr : With_sort
+  module Sort : With_sort
   module Symbol : T
   module Model : T
   module Optimize : T
@@ -14,8 +19,14 @@ module type Types = sig
       | Unknown of string
       | Satisfiable of 'a
   end
-  module Quantifier : T
-  module Pattern : T
+  module Quantifier : With_sort
+  module Pattern : With_sort
+end
+
+module S = struct
+  type bv = [ `BV ]
+  type bool = [ `Bool ]
+
 end
 
 module type Native = sig
@@ -25,28 +36,47 @@ module type Native = sig
   val unsafe_of_native : native -> t
 end
 
+module type Native1 = sig
+  type _ t
+  type native
+  val to_native : _ t -> native
+  val unsafe_of_native : native -> _ t
+end
+
+module With_raw(With_sort : With_sort) = struct
+  module type S = sig
+    type raw = With_sort.raw
+    type 's t = 's With_sort.t [@@deriving sexp_of]
+
+    val to_raw : _ t -> raw
+    val unsafe_of_raw : raw -> _ t
+
+    val to_raw_list : _ t list -> raw list
+    val unsafe_of_raw_list : raw list -> _ t list
+  end
+end
+
 module type Expr = sig
   module Types : Types
   open Types
 
-  type t = Types.Expr.t [@@deriving sexp_of]
+  include With_raw(Expr).S
 
-  val context : t -> Context.t
-  val sort : t -> Sort.t
+  val context : _ t -> Context.t
+  val sort : 's t -> 's Sort.t
 
-  val is_numeral : t -> bool
+  val is_numeral : _ t -> bool
 
-  val to_string : t -> string
-  val numeral_to_binary_string_exn : t -> string
-  val numeral_to_binary_array_exn : t -> bool array
+  val to_string : _ t -> string
+  val numeral_to_binary_string_exn : S.bv t -> string
+  val numeral_to_binary_array_exn : S.bv t -> bool array
 
-  val const : Symbol.t -> Sort.t -> t
-  val const_s : string -> Sort.t -> t
-  val const_i : int -> Sort.t -> t
-  val mk_const : Context.t -> Symbol.t -> Sort.t -> t
-  val mk_numeral_int : Context.t -> int -> Sort.t -> t
+  val const : Symbol.t -> 's Sort.t -> 's t
+  val const_s : string -> 's Sort.t -> 's t
+  val const_i : int -> 's Sort.t -> 's t
+  val numeral_int : int -> 's Sort.t -> 's t
 
-  module Native : Native with type t := t and type native := Z3native.ast
+  module Native : Native1 with type 's t := 's t and type native := Z3native.ast
 end
 
 module type Context = sig
@@ -63,79 +93,81 @@ module type Sort = sig
   module Types : Types
   open Types
 
-  type t = Types.Sort.t
+  include With_raw(Sort).S
 
-  val context : t -> Context.t
+  val context : _ t -> Context.t
 
-  val create_bitvector : Context.t -> bits:int -> t
+  val create_bitvector : Context.t -> bits:int -> S.bv t
 
-  module Native : Native with type t := t and type native := Z3native.sort
+  module Native : Native1 with type 's t := 's t and type native := Z3native.sort
 end
 
 module type Bitvector = sig
   module Types : Types
   open Types
 
-  val is_bv : Expr.t -> bool
-  val size : Sort.t -> int
+  val is_bv : 's Expr.t -> ('s, S.bv) Type_equal.t option
+  val size : S.bv Sort.t -> int
+
+  type t := S.bv Expr.t  
 
   (* CR smuenzel: add With_context *)
 
-  val of_boolean : Expr.t -> Expr.t
+  val of_boolean : S.bool Expr.t -> t
 
-  val and_ : Expr.t -> Expr.t -> Expr.t
-  val or_ : Expr.t -> Expr.t -> Expr.t
-  val xor : Expr.t -> Expr.t -> Expr.t
-  val nand : Expr.t -> Expr.t -> Expr.t
-  val nor : Expr.t -> Expr.t -> Expr.t
-  val xnor : Expr.t -> Expr.t -> Expr.t
-  val not : Expr.t -> Expr.t
+  val and_ : t -> t -> t
+  val or_ : t -> t -> t
+  val xor : t -> t -> t
+  val nand : t -> t -> t
+  val nor : t -> t -> t
+  val xnor : t -> t -> t
+  val not : t -> t
 
-  val neg : Expr.t -> Expr.t
-  val add : Expr.t -> Expr.t -> Expr.t
-  val add_overflow : signed:bool -> Expr.t -> Expr.t -> Expr.t
-  val sub : Expr.t -> Expr.t -> Expr.t
+  val neg : t -> t
+  val add : t -> t -> t
+  val add_overflow : signed:bool -> t -> t -> t
+  val sub : t -> t -> t
 
-  val concat : Expr.t -> Expr.t -> Expr.t
-  val repeat : Expr.t -> count:int -> Expr.t
-  val broadcast_single : Expr.t -> Sort.t -> Expr.t
-  val extract : Expr.t -> high:int -> low:int -> Expr.t
-  val extract_single : Expr.t -> int -> Expr.t
-  val zero_extend : Expr.t -> extra_zeros:int -> Expr.t
-  val sign_extend : Expr.t -> extra_bits:int -> Expr.t
-  val rotate_left_const : Expr.t -> int -> Expr.t
+  val concat : t -> t -> t
+  val repeat : t -> count:int -> t
+  val broadcast_single : t -> S.bv Sort.t -> t
+  val extract : t -> high:int -> low:int -> t
+  val extract_single : t -> int -> t
+  val zero_extend : t -> extra_zeros:int -> t
+  val sign_extend : t -> extra_bits:int -> t
+  val rotate_left_const : t -> int -> t
 
-  val popcount : ?result_bit_size:int -> Expr.t -> Expr.t
+  val popcount : ?result_bit_size:int -> t -> t
 
-  val is_zero : Expr.t -> Expr.t
-  val is_power_of_two : Expr.t -> Expr.t
-  val is_power_of_two_or_zero : Expr.t -> Expr.t
+  val is_zero : t -> S.bool Expr.t
+  val is_power_of_two : t -> S.bool Expr.t
+  val is_power_of_two_or_zero : t -> S.bool Expr.t
 
-  val sign : Expr.t -> Expr.t
-  val parity : Expr.t -> Expr.t
+  val sign : t -> t
+  val parity : t -> t
 
   module Set : sig
-    val const_empty : Context.t -> int -> Expr.t
+    val const_empty : Context.t -> int -> t
 
-    val union : Expr.t -> Expr.t -> Expr.t
-    val inter : Expr.t -> Expr.t -> Expr.t
-    val complement : Expr.t -> Expr.t
-    val diff : Expr.t -> Expr.t -> Expr.t
-    val symmdiff : Expr.t -> Expr.t -> Expr.t
+    val union : t -> t -> t
+    val inter : t -> t -> t
+    val complement : t -> t
+    val diff : t -> t -> t
+    val symmdiff : t -> t -> t
 
-    val is_empty : Expr.t -> Expr.t
-    val is_subset : Expr.t -> of_:Expr.t -> Expr.t
-    val has_max_one_member : Expr.t -> Expr.t
-    val has_single_member : Expr.t -> Expr.t
+    val is_empty : t -> S.bool Expr.t
+    val is_subset : t -> of_:t -> S.bool Expr.t
+    val has_max_one_member : t -> S.bool Expr.t
+    val has_single_member : t -> S.bool Expr.t
   end
 
   module Numeral : sig
-    val bit0 : Context.t -> Expr.t
-    val bit1 : Context.t -> Expr.t
-    val bool : Context.t -> bool list -> Expr.t
+    val bit0 : Context.t -> t
+    val bit1 : Context.t -> t
+    val bool : Context.t -> bool list -> t
 
-    val int : Sort.t -> int -> Expr.t
-    val int_e : Expr.t -> int -> Expr.t
+    val int : S.bv Sort.t -> int -> t
+    val int_e : t -> int -> t
   end
 
 end
@@ -148,9 +180,9 @@ module type Model = sig
 
   val to_string : t -> string
 
-  val eval : t -> Expr.t -> apply_model_completion:bool -> Expr.t option
+  val eval : t -> 's Expr.t -> apply_model_completion:bool -> 's Expr.t option
 
-  val const_interp_e : t -> Expr.t -> Expr.t option
+  val const_interp_e : t -> 's Expr.t -> 's Expr.t option
 
   module Native : Native with type t := t and type native := Z3native.model
 end
@@ -181,10 +213,10 @@ module type Generic_solver = sig
 
   val to_string : t -> string
 
-  val add_list : t -> Expr.t list -> unit
-  val add : t -> Expr.t -> unit
+  val add_list : t -> S.bool Expr.t list -> unit
+  val add : t -> S.bool Expr.t -> unit
 
-  val check_and_get_model : t -> Expr.t list -> Model.t Solver_result.t
+  val check_and_get_model : t -> S.bool Expr.t list -> Model.t Solver_result.t
   val check_current_and_get_model : t -> Model.t Solver_result.t
 
   val push : t -> unit
@@ -212,13 +244,13 @@ module type Optimize = sig
      and module Types := Types
 
   module Goal : sig
-    type t
+    type 's t
 
-    val lower : t -> Expr.t
-    val upper : t -> Expr.t
+    val lower : 's t -> 's Expr.t
+    val upper : 's t -> 's Expr.t
   end
 
-  val add_soft : t -> Expr.t -> weight:int -> Symbol.t -> Goal.t
+  val add_soft : t -> 's Expr.t -> weight:int -> Symbol.t -> 's Goal.t
 
 end
 
@@ -238,10 +270,10 @@ module type Boolean_ops = sig
   module Types : Types
   open Types
   type 'a wrap
-  type n_ary := (Expr.t list -> Expr.t) wrap
-  type binary := (Expr.t -> Expr.t -> Expr.t) wrap
-  type unary := (Expr.t -> Expr.t) wrap
-  type ternary := (Expr.t -> Expr.t -> Expr.t -> Expr.t) wrap
+  type t = S.bool Expr.t
+  type n_ary := (t list -> t) wrap
+  type binary := (t -> t -> t) wrap
+  type unary := (t -> t) wrap
 
   val and_ : n_ary
   val or_ : n_ary
@@ -249,10 +281,10 @@ module type Boolean_ops = sig
   val not : unary
 
   val iff : binary
-  val ite : ternary
+  val ite : (t -> 'a Expr.t -> 'a Expr.t -> 'a Expr.t) wrap
 
-  val eq : binary
-  val neq : binary
+  val eq : ('s1 Expr.t -> 's1 Expr.t -> t) wrap
+  val neq : ('s1 Expr.t -> 's1 Expr.t -> t) wrap
 end
 
 module type Boolean = sig
@@ -265,9 +297,9 @@ module type Boolean = sig
   include Boolean_ops with type 'a wrap := 'a and module Types := Types
 
   module Numeral : sig
-    val false_ : Context.t -> Expr.t
-    val true_ : Context.t -> Expr.t
-    val bool : Context.t -> bool -> Expr.t
+    val false_ : Context.t -> S.bool Expr.t
+    val true_ : Context.t -> S.bool Expr.t
+    val bool : Context.t -> bool -> S.bool Expr.t
   end
 end
 
@@ -275,56 +307,57 @@ module type Quantifier = sig
   module Types : Types
   open Types
 
-  type t = Quantifier.t
+  type 's t = 's Quantifier.t
 
-  val to_expr : t -> Expr.t
-  val of_expr : Expr.t -> t
+  val to_expr : 's t -> 's Expr.t
+  val of_expr : 's Expr.t -> 's t
 
-  type create_quantifer
+  (* CR smuenzel: variable types are incorrect *)
+  type ('s, 's2) create_quantifer
   := ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
-    -> ?patterns:Pattern.t list
-    -> ?nopatterns:Expr.t list
-    -> (Sort.t * Symbol.t) list
-    -> body:Expr.t
-    -> t
+    -> ?patterns:'s Pattern.t list
+    -> ?nopatterns:'s Expr.t list
+    -> ('s2 Sort.t * Symbol.t) list
+    -> body:'s Expr.t
+    -> 's t
 
-  type create_quantifer_const
+  type ('s, 's2) create_quantifer_const
   := ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
-    -> ?patterns:Pattern.t list
-    -> ?nopatterns:Expr.t list
-    -> Expr.t list
-    -> body:Expr.t
-    -> t
+    -> ?patterns:'s Pattern.t list
+    -> ?nopatterns:'s Expr.t list
+    -> 's2 Expr.t list
+    -> body:'s Expr.t
+    -> 's t
 
-  val forall : create_quantifer
-  val forall_const : create_quantifer_const
-  val exists : create_quantifer
-  val exists_const : create_quantifer_const
+  val forall : (_,_) create_quantifer
+  val forall_const : (_,_) create_quantifer_const
+  val exists : (_,_) create_quantifer
+  val exists_const : (_,_) create_quantifer_const
 end
 
 module type Pattern = sig
   module Types : Types
   open Types
 
-  type t = Pattern.t
+  include With_raw(Pattern).S
 
-  val create : Expr.t list -> t
+  val create : 's Expr.t list -> 's t
 end
 
 module rec Types : Types
   with type Context.t = Z3.context
-   and type Sort.t = Z3.Sort.sort
-   and type Expr.t = Z3.Expr.expr
+   and type Sort.raw = Z3.Sort.sort
+   and type Expr.raw = Z3.Expr.expr
    and type Symbol.t = Z3.Symbol.symbol
    and type Model.t = Z3.Model.model
    and type Solver.t = Z3.Solver.solver
    and type Optimize.t = Z3.Optimize.optimize
-   and type Quantifier.t = Z3.Quantifier.quantifier
-   and type Pattern.t = Z3.Quantifier.Pattern.pattern
+   and type Quantifier.raw = Z3.Quantifier.quantifier
+   and type Pattern.raw = Z3.Quantifier.Pattern.pattern
   = Types
 
 module type Z3i_internal = sig
@@ -343,6 +376,8 @@ module type Z3i_internal = sig
   module Boolean : Boolean with module Types := Types
   module Quantifier : Quantifier with module Types := Types
   module Pattern : Pattern with module Types := Types
+
+  module S = S
 end
 
 module type Mux = sig
@@ -350,14 +385,14 @@ module type Mux = sig
   open Types
 
   type t =
-    { selector : Expr.t
-    ; output : Expr.t
-    ; assertions : Expr.t list
+    { selector : S.bv Expr.t
+    ; output : S.bv Expr.t
+    ; assertions : S.bool Expr.t list
     }
 
   val create
     :  selector_symbol:Symbol.t
-    -> Expr.t list
+    -> S.bv Expr.t list
     -> t
 end
 
