@@ -355,7 +355,7 @@ module type Quantifier = sig
   val of_expr : 's Expr.t -> 's t
 
   type 's create_quantifer
-  := ?weight:int
+  :=   ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
     -> ?patterns:Pattern.packed list
@@ -365,7 +365,7 @@ module type Quantifier = sig
     -> 's t
 
   type 's create_quantifer_const
-  := ?weight:int
+  :=   ?weight:int
     -> ?quantifier_id:Symbol.t
     -> ?skolem_id:Symbol.t
     -> ?patterns:Pattern.packed list

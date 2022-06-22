@@ -107,12 +107,12 @@ end
 and Sort : Sort
   with module Types := Types
 = struct
-  module Sort = Z3.Sort
+  module ZSort = Z3.Sort
 
   include Make_raw(Types.Sort)
 
   let sexp_of_t _ t =
-    [%sexp_of: string] (Sort.to_string (to_raw t))
+    [%sexp_of: string] (ZSort.to_string (to_raw t))
 
   let create_bitvector ctx ~bits : S.bv t =
     Z3.BitVector.mk_sort ctx bits
@@ -128,12 +128,12 @@ and Sort : Sort
     |> Context.Native.unsafe_of_native
 
   let same (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
-    if Sort.equal (to_raw a) (to_raw b)
+    if ZSort.equal (to_raw a) (to_raw b)
     then Obj.magic (Some Type_equal.T)
     else None
 
   let sort_kind (type s) (t : s t) : s S.kind =
-    match Sort.get_sort_kind (to_raw t) with
+    match ZSort.get_sort_kind (to_raw t) with
     | UNINTERPRETED_SORT -> Obj.magic S.Uninterpreted
     | BOOL_SORT -> Obj.magic S.Bool
     | INT_SORT -> Obj.magic S.Int
