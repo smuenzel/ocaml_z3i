@@ -261,6 +261,7 @@ and Bitvector : Bitvector
   let neg = Wrap.unary ZBitvector.mk_neg
   let add = Wrap.binary ZBitvector.mk_add
   let sub = Wrap.binary ZBitvector.mk_sub
+  let mul = Wrap.binary ZBitvector.mk_mul
 
   let shift_left t ~count =
     ZBitvector.mk_shl (Expr.context t) (Expr.to_raw count) (Expr.to_raw count)
@@ -341,6 +342,7 @@ and Bitvector : Bitvector
     (* No mk_redxor *)
     List.init size ~f:(fun i -> extract_single a i)
     |> List.reduce_balanced_exn ~f:xor
+
 
   module Set = struct
     let const_empty ctx bits =

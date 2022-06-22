@@ -166,6 +166,7 @@ module type Bitvector = sig
   val neg : t -> t
   val add : t -> t -> t
   val sub : t -> t -> t
+  val mul : t -> t -> t
 
   val shift_left : t -> count:t -> t
 
