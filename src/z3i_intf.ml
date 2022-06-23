@@ -461,9 +461,21 @@ module type Mux = sig
     -> t
 end
 
+module type Symbol_builder = sig
+  module Types : Types
+  open Types
+
+  type t
+
+  val create : ?first_symbol:int -> Context.t -> t
+  val sym : t -> Symbol.t
+  val sym_int : t -> int
+end
+
 module type Z3i = sig
   include Z3i_internal
 
   module Mux : Mux with module Types := Types
+  module Symbol_builder : Symbol_builder with module Types := Types
 
 end
