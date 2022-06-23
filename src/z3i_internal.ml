@@ -186,6 +186,8 @@ and Wrap : sig
 
   include T with type 'a wrap = 'a
 
+  val context_of_list_exn : 's Expr.t list -> Context.t
+
   module Noop : T with type 'a wrap = Context.t -> 'a
 end =  struct
   module type T = Wrap.T
@@ -196,13 +198,16 @@ end =  struct
     { f : 'z . ('s Expr.t -> 'z Expr.t -> 'z Expr.t -> 'z Expr.t) wrap
     } [@@unboxed]
 
-  let list f = fun expr_list ->
+  let context_of_list_exn expr_list =
     match expr_list with
     | [] -> raise_s [%message "empty list"]
-    | (expr :: _) as list ->
+    | (expr :: _) ->
+      Expr.context expr
+
+  let list f = fun expr_list ->
       f
-        (Expr.context expr)
-        (Expr.to_raw_list list)
+        (context_of_list_exn expr_list)
+        (Expr.to_raw_list expr_list)
       |> Expr.unsafe_of_raw
 
   let unary f = fun a -> f (Expr.context a) (Expr.to_raw a) |> Expr.unsafe_of_raw
@@ -242,6 +247,10 @@ and Bitvector : Bitvector
   let size sort = ZBitvector.get_size (sort : _ Sort.t :> Z3.Sort.sort)
   let size_e e = size (Expr.sort e)
 
+  let const s ~bits = Expr.const s (Sort.create_bitvector (Symbol.context s) ~bits)
+  let const_s ctx s ~bits = Expr.const_s s (Sort.create_bitvector ctx ~bits)
+  let const_i ctx i ~bits = Expr.const_i i (Sort.create_bitvector ctx ~bits)
+
   let of_boolean e =
     let ctx = Expr.context e in
     Boolean.With_context.ite
@@ -275,6 +284,12 @@ and Bitvector : Bitvector
     |> Boolean.not
 
   let concat = Wrap.binary ZBitvector.mk_concat
+
+  let concat_list =
+    Wrap.list
+      (fun ctx list ->
+         List.reduce_balanced_exn list ~f:(ZBitvector.mk_concat ctx)
+      )
 
   let repeat expr ~count =
     ZBitvector.mk_repeat (Expr.context expr) count (Expr.to_raw expr)
@@ -333,6 +348,9 @@ and Bitvector : Bitvector
 
   let is_zero e : S.bool Expr.t =
     Boolean.eq e (Bitvector.Numeral.int_e e 0)
+
+  let is_not_zero e : S.bool Expr.t =
+    Boolean.neq e (Bitvector.Numeral.int_e e 0)
 
   let sign a : t =
     extract_single a (size_e a - 1)
@@ -423,6 +441,9 @@ and Model : Model
   let const_interp_e (type s) t (expr : s Expr.t) =
     ZModel.get_const_interp_e t (Expr.to_raw expr)
     |> (Obj.magic : Expr.raw option -> s Expr.t option)
+
+  let const_interp_e_exn (type s) t (expr : s Expr.t) =
+    Option.value_exn (const_interp_e t expr)
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.model)
@@ -584,6 +605,10 @@ and Symbol : Symbol
 
   let of_string = Z3.Symbol.mk_string
 
+  let context t =
+    Z3native.context_of_symbol (Symbol.Native.to_native t)
+    |> Context.Native.unsafe_of_native
+
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.symbol)
     let unsafe_of_native = (Obj.magic : Z3native.symbol -> t)
@@ -629,6 +654,12 @@ and Boolean : Boolean
 
   let ite a b c =
     (Wrap.ternary ZBoolean.mk_ite).f a b c
+
+  let distinct list =
+    ZBoolean.mk_distinct
+      (Wrap.context_of_list_exn list)
+      (Expr.to_raw_list list)
+    |> Expr.unsafe_of_raw
 
   module With_context = struct 
     include Ops(Wrap.Noop)

@@ -21,3 +21,5 @@ let sym_int t =
 let sym t =
   let i = sym_int t in
   Symbol.of_int t.context i
+
+let context t = t.context

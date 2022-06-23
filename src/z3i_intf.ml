@@ -156,10 +156,15 @@ module type Bitvector = sig
   module Types : Types
   open Types
 
+  type t = S.bv Expr.t  
+
   val is_bv : 's Expr.t -> ('s, S.bv) Type_equal.t option
   val size : S.bv Sort.t -> int
+  val size_e : t -> int
 
-  type t = S.bv Expr.t  
+  val const : Symbol.t -> bits:int -> t
+  val const_s : Context.t -> string -> bits:int -> t
+  val const_i : Context.t -> int -> bits:int -> t
 
   (* CR smuenzel: add With_context *)
 
@@ -181,6 +186,7 @@ module type Bitvector = sig
   val shift_left : t -> count:t -> t
 
   val concat : t -> t -> t
+  val concat_list : t list -> t
   val repeat : t -> count:int -> t
   val broadcast_single : t -> S.bv Sort.t -> t
   val extract : t -> high:int -> low:int -> t
@@ -192,6 +198,7 @@ module type Bitvector = sig
   val popcount : ?result_bit_size:int -> t -> t
 
   val is_zero : t -> S.bool Expr.t
+  val is_not_zero : t -> S.bool Expr.t
   val is_power_of_two : t -> S.bool Expr.t
   val is_power_of_two_or_zero : t -> S.bool Expr.t
   val is_add_overflow : signed:bool -> t -> t -> S.bool Expr.t
@@ -246,6 +253,7 @@ module type Model = sig
   val eval : t -> 's Expr.t -> apply_model_completion:bool -> 's Expr.t option
 
   val const_interp_e : t -> 's Expr.t -> 's Expr.t option
+  val const_interp_e_exn : t -> 's Expr.t -> 's Expr.t
 
   module Native : Native with type t := t and type native := Z3native.model
 end
@@ -323,6 +331,8 @@ module type Symbol = sig
 
   type t = Symbol.t
 
+  val context : t -> Context.t
+
   val of_int : Context.t -> int -> t
   val of_string : Context.t -> string -> t
 
@@ -359,6 +369,8 @@ module type Boolean = sig
     Boolean_ops with type 'a wrap := Context.t -> 'a and module Types := Types
 
   include Boolean_ops with type 'a wrap := 'a and module Types := Types
+
+  val distinct : 's Expr.t list -> t
 
   val is_bool : 's Expr.t -> ('s, S.bool) Type_equal.t option
 
@@ -470,6 +482,7 @@ module type Symbol_builder = sig
   val create : ?first_symbol:int -> Context.t -> t
   val sym : t -> Symbol.t
   val sym_int : t -> int
+  val context : t -> Context.t
 end
 
 module type Z3i = sig
