@@ -343,6 +343,19 @@ and Bitvector : Bitvector
     List.init size ~f:(fun i -> extract_single a i)
     |> List.reduce_balanced_exn ~f:xor
 
+  module Signed = struct
+    let (<) = Wrap.binary ZBitvector.mk_slt
+    let (<=) = Wrap.binary ZBitvector.mk_sle
+    let (>) = Wrap.binary ZBitvector.mk_sgt
+    let (>=) = Wrap.binary ZBitvector.mk_sge
+  end
+
+  module Unsigned = struct
+    let (<) = Wrap.binary ZBitvector.mk_ult
+    let (<=) = Wrap.binary ZBitvector.mk_ule
+    let (>) = Wrap.binary ZBitvector.mk_ugt
+    let (>=) = Wrap.binary ZBitvector.mk_uge
+  end
 
   module Set = struct
     let const_empty ctx bits =

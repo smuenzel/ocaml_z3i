@@ -142,6 +142,16 @@ module type Sort = sig
   val create_bitvector : Context.t -> bits:int -> S.bv t
 end
 
+module type Ordering = sig
+  module Types : Types
+  open Types
+  type s
+  val (>) : s Expr.t -> s Expr.t -> S.bool Expr.t
+  val (>=) : s Expr.t -> s Expr.t -> S.bool Expr.t
+  val (<) : s Expr.t -> s Expr.t -> S.bool Expr.t
+  val (<=) : s Expr.t -> s Expr.t -> S.bool Expr.t
+end
+
 module type Bitvector = sig
   module Types : Types
   open Types
@@ -188,6 +198,14 @@ module type Bitvector = sig
 
   val sign : t -> t
   val parity : t -> t
+
+  module Signed : sig
+    include Ordering with type s := S.bv and module Types := Types
+  end
+
+  module Unsigned : sig
+    include Ordering with type s := S.bv and module Types := Types
+  end
 
   module Set : sig
     val const_empty : Context.t -> int -> t
