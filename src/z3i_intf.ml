@@ -115,6 +115,8 @@ module type Expr = sig
   val const_s : string -> 's Sort.t -> 's t
   val const_i : int -> 's Sort.t -> 's t
   val numeral_int : int -> 's Sort.t -> 's t
+
+  val simplify : 's t -> 's t
 end
 
 module type Context = sig

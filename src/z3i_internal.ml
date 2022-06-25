@@ -102,6 +102,10 @@ and Expr : Expr
     let context = Sort.context sort in
     ZExpr.mk_numeral_int context int (sort : _ Sort.t :> Z3.Sort.sort)
     |> unsafe_of_raw
+
+  let simplify e = 
+    ZExpr.simplify (to_raw e) None
+    |> unsafe_of_raw
 end
 
 and Sort : Sort

@@ -66,6 +66,27 @@ let%expect_test "add overflow" =
      ((define-fun k!0 () (_ BitVec 64) #x7ffffffffffffffe)
       (define-fun k!1 () (_ BitVec 64) #x7ffffffffbfffffd))) |}]
 
+let%expect_test "simplify" =
+  let open Z3i in
+  let c = Context.create () in
+  let length = 1 in
+  let sort = Sort.create_bitvector c ~bits:length in
+  let value0 = Expr.const_i 0 sort in
+  Bitvector.is_not_zero value0
+  |> Boolean.not
+  |> [%sexp_of: _ Expr.t]
+  |> print_s;
+  [%expect {|
+    "(not (not (= k!0 #b0)))" |}];
+  Bitvector.is_not_zero value0
+  |> Boolean.not
+  |> Expr.simplify
+  |> [%sexp_of: _ Expr.t]
+  |> print_s;
+  [%expect {|
+    "(= k!0 #b0)" |}];
+  ()
+
 let%expect_test "mux" =
   let open Z3i in
   let c = Context.create () in
