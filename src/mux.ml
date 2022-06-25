@@ -36,3 +36,7 @@ let create
   ; assertions = [ selector_restrict ]
   ; output
   }
+
+let selector_at t i =
+  Bitvector.extract_single t.selector i
+  |> Boolean.of_single_bit_vector

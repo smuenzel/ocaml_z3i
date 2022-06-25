@@ -12,6 +12,7 @@ module type Types = sig
   module Sort : With_sort
   module Symbol : T
   module Model : T
+  module Function_interpretation : T
   module Optimize : T
   module Solver : T
   module Solver_result : sig
@@ -253,12 +254,20 @@ module type Model = sig
 
   val to_string : t -> string
 
-  val eval : t -> 's Expr.t -> apply_model_completion:bool -> 's Expr.t option
+  val eval : ?apply_model_completion:bool -> t -> 's Expr.t -> 's Expr.t option
+  val eval_exn : ?apply_model_completion:bool -> t -> 's Expr.t -> 's Expr.t
 
   val const_interp_e : t -> 's Expr.t -> 's Expr.t option
   val const_interp_e_exn : t -> 's Expr.t -> 's Expr.t
 
   module Native : Native with type t := t and type native := Z3native.model
+end
+
+module type Function_interpretation = sig
+  module Types : Types
+  open! Types
+
+  type t = Types.Function_interpretation.t [@@deriving sexp_of]
 end
 
 module type Solver_result = sig
@@ -376,6 +385,7 @@ module type Boolean = sig
   val distinct : 's Expr.t list -> t
 
   val is_bool : 's Expr.t -> ('s, S.bool) Type_equal.t option
+  val of_single_bit_vector : S.bv Expr.t -> t
 
   module Numeral : sig
     val false_ : Context.t -> S.bool Expr.t
@@ -434,6 +444,7 @@ module rec Types : Types
    and type Expr.raw = Z3.Expr.expr
    and type Symbol.t = Z3.Symbol.symbol
    and type Model.t = Z3.Model.model
+   and type Function_interpretation.t = Z3.Model.FuncInterp.func_interp
    and type Solver.t = Z3.Solver.solver
    and type Optimize.t = Z3.Optimize.optimize
    and type Quantifier.raw = Z3.Quantifier.quantifier
@@ -446,6 +457,7 @@ module type Z3i_internal = sig
   module Sort : Sort with module Types := Types
   module Bitvector : Bitvector with module Types := Types
   module Model : Model with module Types := Types
+  module Function_interpretation : Function_interpretation with module Types := Types
   module Solver : Solver
     with module Types := Types
   module Solver_result : Solver_result
@@ -474,6 +486,8 @@ module type Mux = sig
     :  selector_symbol:Symbol.t
     -> S.bv Expr.t list
     -> t
+  
+  val selector_at : t -> int -> S.bool Expr.t
 end
 
 module type Symbol_builder = sig

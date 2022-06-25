@@ -77,9 +77,11 @@ let%expect_test "mux" =
   let minus_01 = Bitvector.sub value0 value1 in
   let minus_10 = Bitvector.sub value1 value0 in
   let selector_symbol = Symbol.of_string c "sel" in
-  let { Mux. selector = _ ; output; assertions } =
+  let ({ Mux. selector = _ ; output; assertions } as mux) =
     Mux.create ~selector_symbol [ minus_01; minus_10 ]
   in
+  let select_minus_01 = Mux.selector_at mux 0 in
+  let select_minus_10 = Mux.selector_at mux 1 in
   Solver.add_list s assertions;
   let output =
     Quantifier.forall_const
@@ -93,8 +95,21 @@ let%expect_test "mux" =
   [ output
   ]
   |> Solver.add_list s;
-  Solver.check_current_and_get_model s
+  let result =
+    Solver.check_current_and_get_model s
+  in
+  result
   |> [%sexp_of: Model.t Solver_result.t]
   |> print_s;
   [%expect {|
-    (Satisfiable ((define-fun sel () (_ BitVec 2) #b01))) |}]
+    (Satisfiable ((define-fun sel () (_ BitVec 2) #b01))) |}];
+  let model = Solver_result.satisfiable_exn result in
+  Model.eval_exn model select_minus_01
+  |> Expr.to_string |> print_endline;
+  [%expect {|
+    true |}];
+  Model.eval_exn model select_minus_10
+  |> Expr.to_string |> print_endline;
+  [%expect {|
+    false |}];
+

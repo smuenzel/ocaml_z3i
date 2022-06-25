@@ -443,9 +443,13 @@ and Model : Model
   let to_string t = ZModel.to_string t
   let sexp_of_t t = Sexp.List (Sexp.of_string_many (to_string t))
 
-  let eval (type s) t (expr : s Expr.t) ~apply_model_completion =
+  let eval (type s) ?(apply_model_completion=true) t (expr : s Expr.t) =
     ZModel.eval t (Expr.to_raw expr) apply_model_completion
     |> (Obj.magic : Expr.raw option -> s Expr.t option)
+
+  let eval_exn ?apply_model_completion t expr =
+    eval ?apply_model_completion t expr
+    |> Option.value_exn ~message:"could not evaluate"
 
   let const_interp_e (type s) t (expr : s Expr.t) =
     ZModel.get_const_interp_e t (Expr.to_raw expr)
@@ -459,6 +463,18 @@ and Model : Model
     let unsafe_of_native = (Obj.magic : Z3native.model -> t)
   end
 
+end
+
+and Function_interpretation : Function_interpretation
+  with module Types := Types
+= struct
+  type t = Types.Function_interpretation.t
+
+  module ZFuncInterp = Z3.Model.FuncInterp
+
+  let to_string t = ZFuncInterp.to_string t
+
+  let sexp_of_t t = Sexp.List (Sexp.of_string_many (to_string t))
 end
 
 and Solver_result : Solver_result
@@ -658,6 +674,9 @@ and Boolean : Boolean
   let eq a b =
     ZBoolean.mk_eq (Expr.context a) (Expr.to_raw a) (Expr.to_raw b)
     |> Expr.unsafe_of_raw
+
+  let of_single_bit_vector (e : S.bv Expr.t) =
+    eq e (Bitvector.Numeral.bit1_e e)
 
   let neq a b = not (eq a b)
 
