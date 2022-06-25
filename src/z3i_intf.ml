@@ -171,8 +171,11 @@ module type Bitvector = sig
   val of_boolean : S.bool Expr.t -> t
 
   val and_ : t -> t -> t
+  val and_list : t list -> t
   val or_ : t -> t -> t
+  val or_list : t list -> t
   val xor : t -> t -> t
+  val xor_list : t list -> t
   val nand : t -> t -> t
   val nor : t -> t -> t
   val xnor : t -> t -> t

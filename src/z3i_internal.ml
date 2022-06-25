@@ -259,9 +259,18 @@ and Bitvector : Bitvector
       (Bitvector.Numeral.bit1 ctx)
       (Bitvector.Numeral.bit0 ctx)
 
+  let make_list f =
+    Wrap.list
+      (fun ctx list ->
+         List.reduce_balanced_exn list ~f:(f ctx)
+      )
+
   let and_ = Wrap.binary ZBitvector.mk_and
+  let and_list = make_list ZBitvector.mk_and
   let or_ = Wrap.binary ZBitvector.mk_or
+  let or_list = make_list ZBitvector.mk_or
   let xor = Wrap.binary ZBitvector.mk_xor
+  let xor_list = make_list ZBitvector.mk_xor
   let nand = Wrap.binary ZBitvector.mk_nand
   let nor = Wrap.binary ZBitvector.mk_nor
   let xnor = Wrap.binary ZBitvector.mk_xnor

@@ -31,10 +31,7 @@ let create
             input
         )
   in
-  let output =
-    List.reduce_balanced_exn individuals
-      ~f:Bitvector.or_
-  in
+  let output = Bitvector.or_list individuals in
   { selector
   ; assertions = [ selector_restrict ]
   ; output
