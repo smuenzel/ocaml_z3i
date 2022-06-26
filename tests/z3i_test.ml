@@ -133,4 +133,47 @@ let%expect_test "mux" =
   |> Expr.to_string |> print_endline;
   [%expect {|
     false |}];
+  ()
 
+let%expect_test "lambda" =
+  let open Z3i in
+  let c = Context.create () in
+  let s = Solver.create c in
+  let length = 64 in
+  let sort = Sort.create_bitvector c ~bits:length in
+  let s10 = Symbol.of_int c 10 in
+  let lambda =
+    Quantifier.lambda
+      [ s10, T sort ]
+      ~body:
+        (Bitvector.add
+           (Expr.const s10 sort)
+           (Bitvector.Numeral.int sort 4)
+        )
+  in
+  Expr.to_ast (Quantifier.to_expr lambda)
+  |> Ast.kind
+  |> [%sexp_of: Ast.Kind.t]
+  |> print_s;
+  [%expect {|
+    QUANTIFIER_AST |}]
+  ;
+  Expr.sort (Quantifier.to_expr lambda)
+  |> Sort.sort_kind
+  |> Sort.Kind.sexp_of_t [%sexp_of: _]
+  |> print_s;
+  [%expect {|
+    (Array (domain Bv) (range Bv)) |}]
+  ;
+  let value0 = Expr.const_i 0 sort in
+  let value1 = Expr.const_i 1 sort in
+  [ Bitvector.is_add_overflow ~signed:true value0 value1
+  ]
+  |> Solver.add_list s;
+  Solver.check_current_and_get_model s
+  |> [%sexp_of: Model.t Solver_result.t]
+  |> print_s;
+  [%expect {|
+    (Satisfiable
+     ((define-fun k!0 () (_ BitVec 64) #x7ffffffffffffffe)
+      (define-fun k!1 () (_ BitVec 64) #x7ffffffffbfffffd))) |}]

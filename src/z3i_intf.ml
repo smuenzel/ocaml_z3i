@@ -7,11 +7,13 @@ module type With_sort = sig
 end
 
 module type Types = sig
+  module Ast : T
   module Context : T
   module Expr : With_sort
   module Sort : With_sort
   module Symbol : T
   module Model : T
+  module Function_declaration : T
   module Function_interpretation : T
   module Optimize : T
   module Solver : T
@@ -31,7 +33,7 @@ module S = struct
   type int = [ `Int ]
   type real = [ `Real ]
   type bv = [ `Bv ]
-  type array = [ `Array ]
+  type 'a array = [ `Array of 'a]
   type datatype = [ `Datatype ]
   type relation = [ `Relation ]
   type finite_domain = [ `Finite_domain ]
@@ -48,7 +50,7 @@ module S = struct
     | Int : int kind
     | Real : real kind
     | Bv : bv kind
-    | Array : array kind
+    | Array : ('a kind * 'b kind) -> ('a -> 'b) array kind
     | Datatype : datatype kind
     | Relation : relation kind
     | Finite_domain : finite_domain kind
@@ -95,6 +97,19 @@ module With_raw(With_sort : With_sort) = struct
   end
 end
 
+module type Ast = sig
+  module Types : Types
+  open Types
+
+  type t = Ast.t
+
+  module Kind : sig
+    type t = Z3enums.ast_kind [@@deriving sexp]
+  end
+
+  val kind : t -> Kind.t
+end
+
 module type Expr = sig
   module Types : Types
   open Types
@@ -108,6 +123,7 @@ module type Expr = sig
   val is_numeral : _ t -> bool
 
   val to_string : _ t -> string
+  val to_ast : _ t -> Ast.t
 
   val const : Symbol.t -> 's Sort.t -> 's t
   val const_s : string -> 's Sort.t -> 's t
@@ -133,10 +149,14 @@ module type Sort = sig
 
   include With_raw(Sort).S with type Native.native := Z3native.sort
 
+  module Kind : sig
+    type 's t = 's S.kind [@@deriving sexp_of]
+  end
+
   val same : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
   val same_kind : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
 
-  val sort_kind : 's t -> 's S.kind
+  val sort_kind : 's t -> 's Kind.t
 
   val context : _ t -> Context.t
 
@@ -417,7 +437,7 @@ module type Quantifier = sig
     -> ?skolem_id:Symbol.t
     -> ?patterns:Pattern.packed list
     -> ?nopatterns:Expr.packed list
-    -> (Sort.packed * Symbol.t) list
+    -> (Symbol.t * Sort.packed) list
     -> body:'s Expr.t
     -> 's t
 
@@ -435,6 +455,16 @@ module type Quantifier = sig
   val forall_const : 's create_quantifer_const
   val exists : 's create_quantifer
   val exists_const : 's create_quantifer_const
+
+  val lambda
+    : (Symbol.t * Sort.packed) list
+    -> body:'s Expr.t
+    -> 's t
+
+  val lambda_const
+    :  Expr.packed list
+    -> body:'s Expr.t
+    -> 's t
 end
 
 module type Pattern = sig
@@ -448,10 +478,12 @@ end
 
 module rec Types : Types
   with type Context.t = Z3.context
+   and type Ast.t = Z3.AST.ast
    and type Sort.raw = Z3.Sort.sort
    and type Expr.raw = Z3.Expr.expr
    and type Symbol.t = Z3.Symbol.symbol
    and type Model.t = Z3.Model.model
+   and type Function_declaration.t = Z3.FuncDecl.func_decl
    and type Function_interpretation.t = Z3.Model.FuncInterp.func_interp
    and type Solver.t = Z3.Solver.solver
    and type Optimize.t = Z3.Optimize.optimize
@@ -460,6 +492,7 @@ module rec Types : Types
   = Types
 
 module type Z3i_internal = sig
+  module Ast : Ast with module Types := Types
   module Context : Context with module Types := Types
   module Expr : Expr with module Types := Types
   module Sort : Sort with module Types := Types

@@ -38,6 +38,29 @@ module rec Context : Context
   end
 end
 
+and Ast : Ast
+  with module Types := Types
+= struct
+  module ZAst = Z3.AST
+
+  type t = ZAst.ast
+
+  module Kind = struct
+    type t = Z3enums.ast_kind =
+      | NUMERAL_AST
+      | APP_AST
+      | VAR_AST
+      | QUANTIFIER_AST
+      | SORT_AST
+      | FUNC_DECL_AST
+      | UNKNOWN_AST
+    [@@deriving sexp]
+  end
+
+  let kind t = ZAst.get_ast_kind t
+
+end
+
 and Expr : Expr
   with module Types := Types
 = struct
@@ -67,6 +90,8 @@ and Expr : Expr
 
   let to_string = (ZExpr.to_string : raw -> string :> _ t -> string)
 
+  let to_ast t = ZExpr.ast_of_expr (to_raw t)
+
   let const (type s) symbol (sort : s Sort.t) : s t =
     ZExpr.mk_const (Sort.context sort) symbol (sort : _ Sort.t :> Z3.Sort.sort)
     |> unsafe_of_raw
@@ -88,6 +113,12 @@ and Expr : Expr
   let simplify e = 
     ZExpr.simplify (to_raw e) None
     |> unsafe_of_raw
+
+  (*
+  let get_func_decl e =
+    ZExpr.get_func_decl (to_raw e)
+     *)
+
 end
 
 and Sort : Sort
@@ -109,23 +140,59 @@ and Sort : Sort
     let unsafe_of_native = (Obj.magic : Z3native.sort -> _ t)
   end
 
+  let domain (type a b) (t : (a -> b) S.array t) : a t =
+    Z3.Z3Array.get_domain (to_raw t)
+    |> unsafe_of_raw
+
+  let range (type a b) (t : (a -> b) S.array t) : b t =
+    Z3.Z3Array.get_range (to_raw t)
+    |> unsafe_of_raw
+
   let context t =
     Z3native.context_of_ast (Native.to_native t)
     |> Context.Native.unsafe_of_native
+
+  module Kind = struct
+    type 's t = 's S.kind
+
+    let rec sexp_of_t : 'a 's . 'a -> 's t -> Sexp.t =
+      fun (type s) _ (t : s t) ->
+      match t with
+      | Uninterpreted -> [%message "Uninterpreted"]
+      | Bool -> [%message "Bool"]
+      | Int -> [%message "Int"]
+      | Real -> [%message "Real"]
+      | Bv -> [%message "Bv"]
+      | Datatype -> [%message "Datatype"]
+      | Relation -> [%message "Relation"]
+      | Finite_domain -> [%message "Finite_domain"]
+      | Floating_point -> [%message "Floating_point"]
+      | Rounding_mode -> [%message "Rounding_mode"]
+      | Seq -> [%message "Seq"]
+      | Re -> [%message "Re"]
+      | Char -> [%message "Char"]
+      | Unknown -> [%message "Unknown"]
+      | Array (domain, range) ->
+        [%message "Array"
+            (domain : _ t)
+            (range : _ t)
+        ]
+  end
 
   let same (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
     if ZSort.equal (to_raw a) (to_raw b)
     then Obj.magic (Some Type_equal.T)
     else None
 
-  let sort_kind (type s) (t : s t) : s S.kind =
+  let rec sort_kind (type s) (t : s t) : s S.kind =
     match ZSort.get_sort_kind (to_raw t) with
     | UNINTERPRETED_SORT -> Obj.magic S.Uninterpreted
     | BOOL_SORT -> Obj.magic S.Bool
     | INT_SORT -> Obj.magic S.Int
     | REAL_SORT -> Obj.magic S.Real
     | BV_SORT -> Obj.magic S.Bv
-    | ARRAY_SORT -> Obj.magic S.Array
+    | ARRAY_SORT ->
+      Obj.magic (S.Array (sort_kind (domain (Obj.magic t)), sort_kind (range (Obj.magic t))))
     | DATATYPE_SORT -> Obj.magic S.Datatype
     | RELATION_SORT -> Obj.magic S.Relation
     | FINITE_DOMAIN_SORT -> Obj.magic S.Finite_domain
@@ -136,14 +203,20 @@ and Sort : Sort
     | CHAR_SORT -> Obj.magic S.Char
     | UNKNOWN_SORT -> Obj.magic S.Unknown
 
-  let same_kind (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
-    match sort_kind a, sort_kind b with
+  let rec same_kind_internal : 'a 'b . 'a S.kind -> 'b S.kind -> ('a, 'b) Type_equal.t option =
+    fun (type a b) (a : a S.kind) (b : b S.kind) : (a,b) Type_equal.t option ->
+    match a, b with
     | S.Uninterpreted, S.Uninterpreted -> Some T
     | S.Bool, S.Bool -> Some T
     | S.Int, S.Int -> Some T
     | S.Real, S.Real -> Some T
     | S.Bv, S.Bv -> Some T
-    | S.Array, S.Array -> Some T
+    | S.Array (a0, a1), S.Array (b0, b1) ->
+      begin match same_kind_internal a0 b0, same_kind_internal a1 b1 with
+        | None, _ -> None
+        | _, None -> None
+        | Some T, Some T -> Some T
+      end
     | S.Datatype, S.Datatype -> Some T
     | S.Relation, S.Relation -> Some T
     | S.Finite_domain, S.Finite_domain -> Some T
@@ -154,6 +227,10 @@ and Sort : Sort
     | S.Char, S.Char -> Some T
     | S.Unknown, S.Unknown -> Some T
     | _, _ -> None
+
+  let same_kind (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
+    same_kind_internal (sort_kind a) (sort_kind b)
+
 end
 
 and Wrap : sig
@@ -780,8 +857,8 @@ and Quantifier : Quantifier
       ~body
     : s t
     =
-    let Sort.T head_sort, _ = List.hd_exn variables in
-    let sorts, symbols = List.unzip variables in
+    let _, Sort.T head_sort = List.hd_exn variables in
+    let symbols, sorts = List.unzip variables in
     let ctx = Sort.context head_sort in
     ZQuantifier.mk_quantifier
       ctx
@@ -893,6 +970,30 @@ and Quantifier : Quantifier
       ?nopatterns
       variables
       ~body
+
+  let lambda
+      variables
+      ~body
+    =
+    let _, Sort.T head_sort = List.hd_exn variables in
+    let ctx = Sort.context head_sort in
+    ZQuantifier.mk_lambda
+      ctx
+      ((Obj.magic : (Symbol.t * Sort.packed) list -> (Symbol.t * Sort.raw) list) variables)
+      (Expr.to_raw body)
+    |> unsafe_of_raw
+
+  let lambda_const
+      variables
+      ~body
+    =
+    let Expr.T e = List.hd_exn variables in
+    ZQuantifier.mk_lambda_const
+      (Expr.context e)
+      (Expr.to_raw_unpack_list variables)
+      (Expr.to_raw body)
+    |> unsafe_of_raw
+    
 end
 
 and Pattern : Pattern
