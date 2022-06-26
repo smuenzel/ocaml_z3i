@@ -456,15 +456,28 @@ module type Quantifier = sig
   val exists : 's create_quantifer
   val exists_const : 's create_quantifer_const
 
+  (*
   val lambda
     : (Symbol.t * Sort.packed) list
     -> body:'s Expr.t
-    -> 's t
+    -> _ t
 
   val lambda_const
     :  Expr.packed list
     -> body:'s Expr.t
     -> 's t
+     *)
+
+  val lambda_single
+    :  Symbol.t
+    -> 'a Sort.t
+    -> body:'s Expr.t
+    -> ('a -> 's) S.array t
+
+  val lambda_single_const
+    :  'a Expr.t
+    -> body:'s Expr.t
+    -> ('a -> 's) S.array t
 end
 
 module type Pattern = sig
@@ -474,6 +487,15 @@ module type Pattern = sig
   include With_raw(Pattern).S with type Native.native := Z3native.pattern
 
   val create : 's Expr.t list -> 's t
+end
+
+module type ZArray = sig
+  module Types : Types
+  open Types
+
+  type 'a t = 'a S.array Expr.t
+
+  val select : ('a -> 'b) t -> 'a Expr.t -> 'b Expr.t
 end
 
 module rec Types : Types
@@ -509,6 +531,7 @@ module type Z3i_internal = sig
   module Boolean : Boolean with module Types := Types
   module Quantifier : Quantifier with module Types := Types
   module Pattern : Pattern with module Types := Types
+  module ZArray : ZArray with module Types := Types
 
   module S = S
 end

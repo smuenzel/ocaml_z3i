@@ -138,13 +138,13 @@ let%expect_test "mux" =
 let%expect_test "lambda" =
   let open Z3i in
   let c = Context.create () in
-  let s = Solver.create c in
   let length = 64 in
   let sort = Sort.create_bitvector c ~bits:length in
   let s10 = Symbol.of_int c 10 in
   let lambda =
-    Quantifier.lambda
-      [ s10, T sort ]
+    let cs10 = Expr.const s10 sort in
+    Quantifier.lambda_single_const
+      cs10
       ~body:
         (Bitvector.add
            (Expr.const s10 sort)
@@ -166,14 +166,18 @@ let%expect_test "lambda" =
     (Array (domain Bv) (range Bv)) |}]
   ;
   let value0 = Expr.const_i 0 sort in
-  let value1 = Expr.const_i 1 sort in
-  [ Bitvector.is_add_overflow ~signed:true value0 value1
-  ]
-  |> Solver.add_list s;
-  Solver.check_current_and_get_model s
-  |> [%sexp_of: Model.t Solver_result.t]
-  |> print_s;
+  let sel0 =
+    ZArray.select
+      (Quantifier.to_expr lambda)
+      value0
+  in
+  sel0
+  |> Expr.to_string
+  |> print_endline;
+  sel0
+  |> Expr.simplify
+  |> Expr.to_string
+  |> print_endline;
   [%expect {|
-    (Satisfiable
-     ((define-fun k!0 () (_ BitVec 64) #x7ffffffffffffffe)
-      (define-fun k!1 () (_ BitVec 64) #x7ffffffffbfffffd))) |}]
+    (select (lambda ((x!1 (_ BitVec 64))) (bvadd x!1 #x0000000000000004)) k!0)
+    (bvadd #x0000000000000004 k!0) |}]

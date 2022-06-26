@@ -971,6 +971,7 @@ and Quantifier : Quantifier
       variables
       ~body
 
+  (*
   let lambda
       variables
       ~body
@@ -993,7 +994,29 @@ and Quantifier : Quantifier
       (Expr.to_raw_unpack_list variables)
       (Expr.to_raw body)
     |> unsafe_of_raw
-    
+     *)
+
+  let lambda_single
+      symbol
+      sort
+      ~body
+    =
+    ZQuantifier.mk_lambda
+      (Sort.context sort)
+      [ symbol, Sort.to_raw sort
+      ]
+      (Expr.to_raw body)
+    |> unsafe_of_raw
+
+  let lambda_single_const
+      variable
+      ~body
+    =
+    ZQuantifier.mk_lambda_const
+      (Expr.context variable)
+      [ Expr.to_raw variable ]
+      (Expr.to_raw body)
+    |> unsafe_of_raw
 end
 
 and Pattern : Pattern
@@ -1014,4 +1037,14 @@ and Pattern : Pattern
     let to_native = (Obj.magic : _ t -> Z3native.pattern)
     let unsafe_of_native = (Obj.magic : Z3native.pattern -> _ t)
   end
+end
+
+and ZArray : ZArray
+  with module Types := Types
+= struct
+  type 'a t = 'a S.array Expr.t
+
+  let select (type a b) (ar : (a -> b) t) (s : a Expr.t) : b Expr.t =
+    Z3.Z3Array.mk_select (Expr.context ar) (Expr.to_raw ar) (Expr.to_raw s)
+    |> Expr.unsafe_of_raw
 end
