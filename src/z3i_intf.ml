@@ -362,8 +362,10 @@ module type Boolean_ops = sig
   type binary := (t -> t -> t) wrap
   type unary := (t -> t) wrap
 
-  val and_ : n_ary
-  val or_ : n_ary
+  val and_list : n_ary
+  val or_list : n_ary
+  val and_ : binary
+  val or_ : binary
   val xor : binary
   val not : unary
 
@@ -388,6 +390,9 @@ module type Boolean = sig
 
   val is_bool : 's Expr.t -> ('s, S.bool) Type_equal.t option
   val of_single_bit_vector : S.bv Expr.t -> t
+
+  val and_array : t Array.t -> t
+  val or_array : t Array.t -> t
 
   module Numeral : sig
     val false_ : Context.t -> S.bool Expr.t

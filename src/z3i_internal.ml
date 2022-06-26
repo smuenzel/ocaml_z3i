@@ -184,6 +184,7 @@ and Wrap : sig
 
     val list : (Context.t -> Expr.raw list -> Expr.raw) -> ('s Expr.t list -> 's Expr.t) wrap
     val binary : (Context.t -> Expr.raw -> Expr.raw -> Expr.raw) -> (_ Expr.t -> _ Expr.t -> _ Expr.t) wrap
+    val binary_expr : (Context.t -> 'a Expr.t -> 'b Expr.t -> 'c Expr.t) -> ('a Expr.t -> 'b Expr.t -> 'c Expr.t) wrap
     val ternary : (Context.t -> Expr.raw -> Expr.raw -> Expr.raw -> Expr.raw) -> _ ternary
     val unary : (Context.t -> Expr.raw -> Expr.raw) -> (_ Expr.t -> _ Expr.t) wrap
   end
@@ -191,6 +192,7 @@ and Wrap : sig
   include T with type 'a wrap = 'a
 
   val context_of_list_exn : 's Expr.t list -> Context.t
+  val context_of_array_exn : 's Expr.t array -> Context.t
 
   module Noop : T with type 'a wrap = Context.t -> 'a
 end =  struct
@@ -208,6 +210,12 @@ end =  struct
     | (expr :: _) ->
       Expr.context expr
 
+  let context_of_array_exn expr_array =
+    match expr_array with
+    | [||] -> raise_s [%message "empty array"]
+    | _ ->
+      Expr.context expr_array.(0)
+
   let list f = fun expr_list ->
       f
         (context_of_list_exn expr_list)
@@ -216,6 +224,7 @@ end =  struct
 
   let unary f = fun a -> f (Expr.context a) (Expr.to_raw a) |> Expr.unsafe_of_raw
   let binary f = fun a b -> f (Expr.context a) (Expr.to_raw a) (Expr.to_raw b) |> Expr.unsafe_of_raw
+  let binary_expr f = fun a b -> f (Expr.context a) a b
   let ternary f = 
     { f =
         fun a b c ->
@@ -232,6 +241,7 @@ end =  struct
     let list f = Obj.magic f
     let unary f = Obj.magic f
     let binary f = Obj.magic f
+    let binary_expr f = f
     let ternary f = Obj.magic f
   end
 end
@@ -354,7 +364,7 @@ and Bitvector : Bitvector
     |> Bitvector.is_zero
 
   let is_power_of_two e : S.bool Expr.t =
-    Boolean.and_
+    Boolean.and_list
      [ is_power_of_two_or_zero e
      ; Boolean.not (Bitvector.is_zero e)
      ]
@@ -650,11 +660,31 @@ and Boolean : Boolean
 
   module ZBoolean = Z3.Boolean
 
+  (* CR smuenzel: this is not efficient *)
+  let mk_and2 c a b =
+    Z3native.mk_and (Context.Native.to_native c)
+      2
+      [ Expr.Native.to_native a
+      ; Expr.Native.to_native b
+      ]
+    |> Expr.Native.unsafe_of_native
+
+    (* CR smuenzel: this is not efficient *)
+  let mk_or2 c a b =
+    Z3native.mk_or (Context.Native.to_native c)
+      2
+      [ Expr.Native.to_native a 
+      ; Expr.Native.to_native b
+      ]
+    |> Expr.Native.unsafe_of_native
+
   module Ops(Wrap : Wrap.T) = struct
     type t = S.bool Expr.t
 
-    let and_ = Wrap.list ZBoolean.mk_and
-    let or_ = Wrap.list ZBoolean.mk_or
+    let and_list = Wrap.list ZBoolean.mk_and
+    let and_ = Wrap.binary_expr mk_and2
+    let or_list = Wrap.list ZBoolean.mk_or
+    let or_ = Wrap.binary_expr mk_or2
     let not = Wrap.unary ZBoolean.mk_not
     let xor = Wrap.binary ZBoolean.mk_xor
 
@@ -692,6 +722,14 @@ and Boolean : Boolean
       (Wrap.context_of_list_exn list)
       (Expr.to_raw_list list)
     |> Expr.unsafe_of_raw
+
+  let and_array array =
+    let c = Wrap.context_of_array_exn array in
+    Array.reduce_exn array ~f:(mk_and2 c)
+
+  let or_array array =
+    let c = Wrap.context_of_array_exn array in
+    Array.reduce_exn array ~f:(mk_or2 c)
 
   module With_context = struct 
     include Ops(Wrap.Noop)
