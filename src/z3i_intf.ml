@@ -108,8 +108,6 @@ module type Expr = sig
   val is_numeral : _ t -> bool
 
   val to_string : _ t -> string
-  val numeral_to_binary_string_exn : S.bv t -> string
-  val numeral_to_binary_array_exn : S.bv t -> bool array
 
   val const : Symbol.t -> 's Sort.t -> 's t
   val const_s : string -> 's Sort.t -> 's t
@@ -244,6 +242,9 @@ module type Bitvector = sig
 
     val int : S.bv Sort.t -> int -> t
     val int_e : t -> int -> t
+
+    val to_binary_string_exn : t -> string
+    val to_binary_array_exn : t -> bool array
   end
 
 end
@@ -487,6 +488,7 @@ module type Mux = sig
     { selector : S.bv Expr.t
     ; output : S.bv Expr.t
     ; assertions : S.bool Expr.t list
+    ; length : int
     }
 
   val create
@@ -495,6 +497,10 @@ module type Mux = sig
     -> t
   
   val selector_at : t -> int -> S.bool Expr.t
+
+  val constraints : t -> S.bool Expr.t
+
+  val model_selector : t -> Model.t -> int option
 end
 
 module type Symbol_builder = sig
@@ -503,8 +509,8 @@ module type Symbol_builder = sig
 
   type t
 
-  val create : ?first_symbol:int -> Context.t -> t
-  val sym : t -> Symbol.t
+  val create : ?first_symbol:int -> ?use_name:bool -> Context.t -> t
+  val sym : ?name:string -> t -> Symbol.t
   val sym_int : t -> int
   val context : t -> Context.t
 end

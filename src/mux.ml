@@ -5,6 +5,7 @@ type t =
   { selector : S.bv Expr.t
   ; output : S.bv Expr.t
   ; assertions : S.bool Expr.t list
+  ; length : int
   }
 
 let create
@@ -35,8 +36,18 @@ let create
   { selector
   ; assertions = [ selector_restrict ]
   ; output
+  ; length
   }
 
 let selector_at t i =
   Bitvector.extract_single t.selector i
   |> Boolean.of_single_bit_vector
+
+let model_selector t model =
+  Model.eval_exn model t.selector
+  |> Bitvector.Numeral.to_binary_array_exn
+  |> Array.findi ~f:(fun _i b -> b)
+  |> Option.map ~f:(fun (i, _) -> t.length - i - 1)
+
+let constraints t =
+  Boolean.and_list t.assertions

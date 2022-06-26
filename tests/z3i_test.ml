@@ -98,7 +98,7 @@ let%expect_test "mux" =
   let minus_01 = Bitvector.sub value0 value1 in
   let minus_10 = Bitvector.sub value1 value0 in
   let selector_symbol = Symbol.of_string c "sel" in
-  let ({ Mux. selector = _ ; output; assertions } as mux) =
+  let ({ Mux. selector = _ ; output; assertions; length = _ } as mux) =
     Mux.create ~selector_symbol [ minus_01; minus_10 ]
   in
   let select_minus_01 = Mux.selector_at mux 0 in

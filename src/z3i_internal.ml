@@ -67,24 +67,6 @@ and Expr : Expr
 
   let to_string = (ZExpr.to_string : raw -> string :> _ t -> string)
 
-  let numeral_to_binary_string_exn t =
-    if not (Expr.is_numeral t)
-    then raise_s [%message "not a numeral" (t : _ t)];
-    let length = Bitvector.size (Expr.sort t) in
-    let ctx = context t in
-    let short_string =
-      Z3native.get_numeral_binary_string
-        (Context.Native.to_native ctx)
-        (Expr.Native.to_native t)
-    in
-    String.init (length - String.length short_string) ~f:(Fn.const '0')
-    ^ short_string
-
-  let numeral_to_binary_array_exn t =
-    numeral_to_binary_string_exn t
-    |> String.to_array
-    |> Array.map ~f:(Char.(=) '1')
-
   let const (type s) symbol (sort : s Sort.t) : s t =
     ZExpr.mk_const (Sort.context sort) symbol (sort : _ Sort.t :> Z3.Sort.sort)
     |> unsafe_of_raw
@@ -443,6 +425,24 @@ and Bitvector : Bitvector
 
     let int_e expr i =
       int (Expr.sort expr) i
+
+    let to_binary_string_exn t =
+      if Stdlib.not (Expr.is_numeral t)
+      then raise_s [%message "not a numeral" (t : _ Expr.t)];
+      let length = Bitvector.size (Expr.sort t) in
+      let ctx = Expr.context t in
+      let short_string =
+        Z3native.get_numeral_binary_string
+          (Context.Native.to_native ctx)
+          (Expr.Native.to_native t)
+      in
+      String.init (length - String.length short_string) ~f:(Fn.const '0')
+      ^ short_string
+
+    let to_binary_array_exn t =
+      to_binary_string_exn t
+      |> String.to_array
+      |> Array.map ~f:(Char.(=) '1')
   end
 
 end
