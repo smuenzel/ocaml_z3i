@@ -709,7 +709,6 @@ and Optimize : Optimize
 = struct
   type t = Types.Optimize.t
 
-
   let context t =
     Z3native.context_of_optimize (Optimize.Native.to_native t)
     |> Context.Native.unsafe_of_native
@@ -1123,17 +1122,6 @@ and ZArray : ZArray
       length
       (Expr.Native.to_native_list as_list)
     |> Expr.Native.unsafe_of_native
-      (*
-
-    Z3.Z3Array.mk
-      (Expr.to_raw ar)
-      (Expr.to_raw_list
-      (Expr.to_raw s)
-         *)
-    (*
-
-  val select : 'f t -> (_,'f,'body) Lambda_list.t -> 'body Expr.t
-       *)
 end
 
 and Lambda_list : sig

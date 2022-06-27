@@ -24,6 +24,7 @@ module type Types = sig
       | Satisfiable of 'a
   end
   module Lambda_list : sig
+    (* CR smuenzel: we can get rid of the second argument *)
     type ('inputs, 'remaining, 'final) t =
       | [] : (Nothing.t, 'res, 'res) t
       | (::) : 'arg Expr.t * ('next_args, 'next, 'final) t -> (('arg * 'next_args), 'arg -> 'next, 'final) t
