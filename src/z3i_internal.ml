@@ -142,9 +142,26 @@ and Sort : Sort
     let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
   end
 
-  let domain (type a b) (t : (a -> b) S.array t) : a t =
-    Z3.Z3Array.get_domain (to_raw t)
-    |> unsafe_of_raw
+  let domain_n t i =
+    try
+      let result =
+        Z3native.get_array_sort_domain_n
+          (Sort.context t |> Context.Native.to_native)
+          (Sort.Native.to_native t)
+          i
+        |> Native.unsafe_of_native
+      in
+      Some (T result)
+    with
+    | Z3.Error _ -> None
+
+  let rec all_domains acc t i =
+    match domain_n t i with
+    | None -> List.rev acc
+    | Some packed ->
+      all_domains (packed :: acc) t (i + 1)
+
+  let all_domains t = all_domains [] t 0
 
   let range (type a b) (t : (a -> b) S.array t) : b t =
     Z3.Z3Array.get_range (to_raw t)
@@ -174,11 +191,26 @@ and Sort : Sort
       | Re -> [%message "Re"]
       | Char -> [%message "Char"]
       | Unknown -> [%message "Unknown"]
-      | Array (domain, range) ->
+      | Array (array_instance, range) ->
+        let domain = sexp_of_array_instance array_instance in
         [%message "Array"
-            (domain : _ t)
+            (domain : Sexp.t list)
             (range : _ t)
         ]
+    and sexp_of_array_instance : 'a 'b 'c . ('a,'b,'c) S.array_instance -> Sexp.t list =
+      fun (type a b c) (i : (a,b,c) S.array_instance) ->
+      match i with
+      | [] -> []
+      | x :: xs ->
+        (sexp_of_t () x)
+        :: sexp_of_array_instance xs
+
+    let rec kind_list_to_array_instance (list : S.packed_kind list) : S.packed_array_instance =
+      match list with
+      | [] -> S.A []
+      | K x :: xs -> 
+        let S.A xs = kind_list_to_array_instance xs in
+        S.A (x :: xs)
   end
 
   let same (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
@@ -194,7 +226,22 @@ and Sort : Sort
     | REAL_SORT -> Obj.magic S.Real
     | BV_SORT -> Obj.magic S.Bv
     | ARRAY_SORT ->
-      Obj.magic (S.Array (sort_kind (domain (Obj.magic t)), sort_kind (range (Obj.magic t))))
+      (* CR smuenzel: too much magic *)
+      let all_domains = all_domains t in
+      let range = range ((Obj.magic : s t -> _ S.array t) t) in
+      let all_domains =
+        List.map all_domains
+          ~f:(fun (T s) ->
+              S.K
+                (sort_kind ((Obj.magic : _ t -> _ t) s)))
+      in
+      let A all_domains =
+        Kind.kind_list_to_array_instance all_domains
+      in
+      S.Array ( all_domains
+              , (Obj.magic : _ Kind.t -> _ Kind.t) (sort_kind range)
+              )
+      |> (Obj.magic : _ S.array Kind.t -> _ Kind.t)
     | DATATYPE_SORT -> Obj.magic S.Datatype
     | RELATION_SORT -> Obj.magic S.Relation
     | FINITE_DOMAIN_SORT -> Obj.magic S.Finite_domain
@@ -213,11 +260,13 @@ and Sort : Sort
     | S.Int, S.Int -> Some T
     | S.Real, S.Real -> Some T
     | S.Bv, S.Bv -> Some T
-    | S.Array (a0, a1), S.Array (b0, b1) ->
-      begin match same_kind_internal a0 b0, same_kind_internal a1 b1 with
-        | None, _ -> None
-        | _, None -> None
-        | Some T, Some T -> Some T
+    | S.Array (a0,a1), S.Array (b0, b1) ->
+      begin match same_kind_internal a1 b1 with
+        | None -> None
+        | Some (T as eq_res) ->
+          match same_array_kind_internal a0 b0 eq_res with
+          | None -> None
+          | Some T -> Some T
       end
     | S.Datatype, S.Datatype -> Some T
     | S.Relation, S.Relation -> Some T
@@ -229,6 +278,28 @@ and Sort : Sort
     | S.Char, S.Char -> Some T
     | S.Unknown, S.Unknown -> Some T
     | _, _ -> None
+  and same_array_kind_internal
+    : 'a0 'a1 'a2 'b0 'b1 'b2 .
+        ('a0,'a1,'a2) S.array_instance
+      -> ('b0,'b1,'b2) S.array_instance
+      -> ('a2, 'b2) Type_equal.t
+      -> ('a0 * 'a1 * 'a2, 'b0 * 'b1 * 'b2) Type_equal.t option =
+      fun (type a0 a1 a2 b0 b1 b2)
+      (a : (a0,a1,a2) S.array_instance)
+      (b : (b0,b1,b2) S.array_instance)
+      (eq_res : (a2,b2) Type_equal.t)
+    ->
+      match a, b, eq_res with
+      | [], [], T -> Some (Type_equal.T : (a0 * a1 * a2, b0 * b1 * b2) Type_equal.t)
+      | _ :: _, [], _ -> None
+      | [], _ :: _, _ -> None
+      | x :: xs, y :: ys, T ->
+        match same_kind_internal x y with
+        | None -> None
+        | Some T ->
+          match same_array_kind_internal xs ys eq_res with
+          | None -> None
+          | Some T -> Some T
 
   let same_kind (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
     same_kind_internal (sort_kind a) (sort_kind b)

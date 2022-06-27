@@ -55,9 +55,7 @@ module S = struct
     | Int : int kind
     | Real : real kind
     | Bv : bv kind
-    (* CR smuenzel: This doesn't work properly, because it's hard to extract
-       additional arguments *)
-    | Array : ('a kind * 'b kind) -> ('a -> 'b) array kind
+    | Array : (_,'a,'final) array_instance * 'final kind-> 'a array kind
     | Datatype : datatype kind
     | Relation : relation kind
     | Finite_domain : finite_domain kind
@@ -67,6 +65,13 @@ module S = struct
     | Re : re kind
     | Char : char kind
     | Unknown : unknown kind
+  and ('inputs, 'remaining, 'final) array_instance =
+    | [] : (Nothing.t, 'res, 'res) array_instance
+    | (::) : 'arg kind * ('next_args, 'next, 'final) array_instance -> (('arg * 'next_args), 'arg -> 'next, 'final) array_instance
+  and packed_kind =
+    | K : _ kind -> packed_kind [@@unboxed]
+  and packed_array_instance =
+    | A : (_,_,_) array_instance -> packed_array_instance [@@unboxed]
 end
 
 module type Native = sig

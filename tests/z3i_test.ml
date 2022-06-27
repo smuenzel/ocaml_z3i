@@ -30,7 +30,7 @@ let%expect_test "shift_left" =
   Solver.check_current_and_get_model s
   |> [%sexp_of: Model.t Solver_result.t]
   |> print_s;
-  [%expect {| Unsatisfiable |}]
+  [%expect {| (Satisfiable ((define-fun k!0 () (_ BitVec 64) #x0000000000000003))) |}]
 
 let%expect_test "parity" =
   let open Z3i in
@@ -194,14 +194,14 @@ let%expect_test "lambda" =
   |> Sort.Kind.sexp_of_t [%sexp_of: _]
   |> print_s;
   [%expect {|
-    (Array (domain Bv) (range Bv)) |}]
+    (Array (domain (Bv)) (range Bv)) |}]
   ;
   Expr.sort (Quantifier.to_expr lambda2)
   |> Sort.sort_kind
   |> Sort.Kind.sexp_of_t [%sexp_of: _]
   |> print_s;
   [%expect {|
-    (Array (domain Bv) (range Bv)) |}]
+    (Array (domain (Bv Bv)) (range Bv)) |}]
   ;
   let value0 = Expr.const_i 0 sort in
   let sel0 =
