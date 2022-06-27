@@ -74,6 +74,7 @@ and Expr : Expr
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.ast)
     let unsafe_of_native = (Obj.magic : Z3native.ast -> _ t)
+    let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
   end
 
   let context t =
@@ -138,6 +139,7 @@ and Sort : Sort
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.sort)
     let unsafe_of_native = (Obj.magic : Z3native.sort -> _ t)
+    let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
   end
 
   let domain (type a b) (t : (a -> b) S.array t) : a t =
@@ -971,50 +973,13 @@ and Quantifier : Quantifier
       variables
       ~body
 
-  (*
-  let lambda
-      variables
-      ~body
-    =
-    let _, Sort.T head_sort = List.hd_exn variables in
-    let ctx = Sort.context head_sort in
-    ZQuantifier.mk_lambda
-      ctx
-      ((Obj.magic : (Symbol.t * Sort.packed) list -> (Symbol.t * Sort.raw) list) variables)
-      (Expr.to_raw body)
-    |> unsafe_of_raw
-
   let lambda_const
-      variables
-      ~body
-    =
-    let Expr.T e = List.hd_exn variables in
-    ZQuantifier.mk_lambda_const
-      (Expr.context e)
-      (Expr.to_raw_unpack_list variables)
-      (Expr.to_raw body)
-    |> unsafe_of_raw
-     *)
-
-  module Lambda_list = struct
-    type ('remaining, 'final) t =
-      | [] : ('res, 'res) t
-      | (::) : 'arg Expr.t * ('next, 'final) t -> ('arg -> 'next, 'final) t
-
-    let rec to_list : 'a 'final . ('a, 'final) t -> Expr.packed list =
-      fun (type a final) (t : (a, final) t) ->
-      match t with
-      | [] -> ([] : _ list)
-      | x :: xs -> Expr.T x :: to_list xs
-  end
-
-  let lambda_const
-      (type a final)
-      (variables : (a,final) Lambda_list.t)
+      (type a final inputs)
+      (variables : (inputs, a,final) Lambda_list.t)
       ~(body:final Expr.t)
-    : a t 
+    : a S.array t 
     =
-    let variables = Lambda_list.to_list variables in
+    let _, variables = Lambda_list.to_list variables in
     ZQuantifier.mk_lambda_const
       (Expr.context body)
       (Expr.to_raw_unpack_list variables)
@@ -1061,15 +1026,55 @@ and Pattern : Pattern
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.pattern)
     let unsafe_of_native = (Obj.magic : Z3native.pattern -> _ t)
+    let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
   end
 end
 
 and ZArray : ZArray
   with module Types := Types
 = struct
+
   type 'a t = 'a S.array Expr.t
 
-  let select (type a b) (ar : (a -> b) t) (s : a Expr.t) : b Expr.t =
+  let select_single (type a b) (ar : (a -> b) t) (s : a Expr.t) : b Expr.t =
     Z3.Z3Array.mk_select (Expr.context ar) (Expr.to_raw ar) (Expr.to_raw s)
     |> Expr.unsafe_of_raw
+
+  let select (type body) ar (ss : (_,_,body) Lambda_list.t) : body Expr.t =
+    let length, as_list = Lambda_list.to_list ss in
+    Z3native.mk_select_n
+      (Expr.context ar |> Context.Native.to_native)
+      (Expr.Native.to_native ar)
+      length
+      (Expr.Native.to_native_list as_list)
+    |> Expr.Native.unsafe_of_native
+      (*
+
+    Z3.Z3Array.mk
+      (Expr.to_raw ar)
+      (Expr.to_raw_list
+      (Expr.to_raw s)
+         *)
+    (*
+
+  val select : 'f t -> (_,'f,'body) Lambda_list.t -> 'body Expr.t
+       *)
 end
+
+and Lambda_list : sig
+  include Lambda_list with module Types := Types
+
+  val to_list : (_,_,_) t -> int * (Expr.packed list)
+end = struct
+  include Types.Lambda_list
+
+  let rec to_list : 'inputs 'a 'final . ('inputs, 'a, 'final) t -> int * Expr.packed list =
+    fun (type inputs a final) (t : (inputs, a, final) t) ->
+    match t with
+    | [] -> 0, ([] : _ list)
+    | x :: xs ->
+      let length, rest = to_list xs in
+      length + 1
+    , Expr.T x :: rest
+end
+

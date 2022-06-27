@@ -141,6 +141,8 @@ let%expect_test "lambda" =
   let length = 64 in
   let sort = Sort.create_bitvector c ~bits:length in
   let s10 = Symbol.of_int c 10 in
+  let s11 = Symbol.of_int c 11 in
+  let s12 = Symbol.of_int c 12 in
   let lambda =
     let cs10 = Expr.const s10 sort in
     Quantifier.lambda_single_const
@@ -149,6 +151,19 @@ let%expect_test "lambda" =
         (Bitvector.add
            (Expr.const s10 sort)
            (Bitvector.Numeral.int sort 4)
+        )
+  in
+  let lambda2 =
+    let cs11 = Expr.const s11 sort in
+    let cs12 = Expr.const s12 sort in
+    Quantifier.lambda_const
+      [ cs11
+      ; cs12
+      ]
+      ~body:
+        (Bitvector.add
+           (Expr.const s11 sort)
+           (Expr.const s12 sort)
         )
   in
   Expr.to_ast (Quantifier.to_expr lambda)
@@ -165,9 +180,16 @@ let%expect_test "lambda" =
   [%expect {|
     (Array (domain Bv) (range Bv)) |}]
   ;
+  Expr.sort (Quantifier.to_expr lambda2)
+  |> Sort.sort_kind
+  |> Sort.Kind.sexp_of_t [%sexp_of: _]
+  |> print_s;
+  [%expect {|
+    (Array (domain Bv) (range Bv)) |}]
+  ;
   let value0 = Expr.const_i 0 sort in
   let sel0 =
-    ZArray.select
+    ZArray.select_single
       (Quantifier.to_expr lambda)
       value0
   in
@@ -180,4 +202,24 @@ let%expect_test "lambda" =
   |> print_endline;
   [%expect {|
     (select (lambda ((x!1 (_ BitVec 64))) (bvadd x!1 #x0000000000000004)) k!0)
-    (bvadd #x0000000000000004 k!0) |}]
+    (bvadd #x0000000000000004 k!0) |}];
+  ();
+  let sel20 =
+    ZArray.select
+      (Quantifier.to_expr lambda2)
+      [ value0
+      ; value0
+      ]
+  in
+  sel20
+  |> Expr.to_string
+  |> print_endline;
+  sel20
+  |> Expr.simplify
+  |> Expr.to_string
+  |> print_endline;
+  [%expect {|
+    (select (lambda ((x!1 (_ BitVec 64)) (x!2 (_ BitVec 64))) (bvadd x!1 x!2))
+            k!0
+            k!0)
+    (bvmul #x0000000000000002 k!0) |}]

@@ -23,6 +23,11 @@ module type Types = sig
       | Unknown of string
       | Satisfiable of 'a
   end
+  module Lambda_list : sig
+    type ('inputs, 'remaining, 'final) t =
+      | [] : (Nothing.t, 'res, 'res) t
+      | (::) : 'arg Expr.t * ('next_args, 'next, 'final) t -> (('arg * 'next_args), 'arg -> 'next, 'final) t
+  end
   module Quantifier : With_sort
   module Pattern : With_sort
 end
@@ -71,9 +76,11 @@ end
 
 module type Native1 = sig
   type _ t
+  type packed
   type native
   val to_native : _ t -> native
   val unsafe_of_native : native -> _ t
+  val to_native_list : packed list -> native list
 end
 
 module With_raw(With_sort : With_sort) = struct
@@ -93,7 +100,7 @@ module With_raw(With_sort : With_sort) = struct
 
     val to_raw_unpack_list : packed list -> raw list
 
-    module Native : Native1 with type 's t := 's t
+    module Native : Native1 with type 's t := 's t and type packed := packed
   end
 end
 
@@ -422,6 +429,15 @@ module type Boolean = sig
   end
 end
 
+module type Lambda_list = sig
+  module Types : Types
+  open Types
+
+  type ('inputs, 'remaining, 'final) t =
+    | [] : (Nothing.t, 'res, 'res) t
+    | (::) : 'arg Expr.t * ('next_args, 'next, 'final) t -> (('arg * 'next_args), 'arg -> 'next, 'final) t
+end
+
 module type Quantifier = sig
   module Types : Types
   open Types
@@ -456,16 +472,10 @@ module type Quantifier = sig
   val exists : 's create_quantifer
   val exists_const : 's create_quantifer_const
 
-  module Lambda_list : sig
-    type ('remaining, 'final) t =
-      | [] : ('res, 'res) t
-      | (::) : 'arg Expr.t * ('next, 'final) t -> ('arg -> 'next, 'final) t
-  end
-
   val lambda_const
-    :  ('f, 'body) Lambda_list.t
+    :  (_, 'f, 'body) Lambda_list.t
     -> body:'body Expr.t
-    -> 'f t
+    -> 'f S.array t
 
   val lambda_single
     :  Symbol.t
@@ -494,7 +504,11 @@ module type ZArray = sig
 
   type 'a t = 'a S.array Expr.t
 
-  val select : ('a -> 'b) t -> 'a Expr.t -> 'b Expr.t
+  (* CR smuenzel: select needs to supply all arguments, partial application is not
+     supported, but our types don't show that. *)
+  val select_single : ('a -> 'b) t -> 'a Expr.t -> 'b Expr.t
+
+  val select : 'f t -> (_,'f,'body) Lambda_list.t -> 'body Expr.t
 end
 
 module rec Types : Types
