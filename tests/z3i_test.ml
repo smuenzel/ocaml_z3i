@@ -1,5 +1,22 @@
 open! Core
 
+let%expect_test "tuple" =
+  let open Z3i in
+  let c = Context.create () in
+  let s = Symbol_builder.create c in
+  let sort_symbol = Symbol_builder.sym s in
+  let des0 = Symbol_builder.sym s in
+  let des1 = Symbol_builder.sym s in
+  let bool_s = Sort.create_boolean c in
+  let bv_s = Sort.create_bitvector c ~bits:8 in
+  let sort =
+    Z3.Tuple.mk_sort c sort_symbol [ des0; des1 ] [ Sort.to_raw bool_s; Sort.to_raw bv_s ]
+  in
+  Sort.sort_kind (Sort.unsafe_of_raw sort)
+  |> [%sexp_of: _ Sort.Kind.t]
+  |> print_s;
+  [%expect {| Datatype |}]
+
 let%expect_test "popcount" =
   let open Z3i in
   let c = Context.create () in

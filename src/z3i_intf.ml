@@ -40,7 +40,7 @@ module S = struct
   type real = [ `Real ]
   type bv = [ `Bv ]
   type ('a, 'b) array = [ `Array of 'a * 'b]
-  type datatype = [ `Datatype ]
+  type 'a datatype = [ `Datatype of 'a]
   type relation = [ `Relation ]
   type finite_domain = [ `Finite_domain ]
   type floating_point = [ `Floating_point ]
@@ -50,6 +50,13 @@ module S = struct
   type char = [ `Char ]
   type unknown = [ `Unknown ]
 
+  type tuple = [ `Tuple ]
+  type other = [ `Other ]
+
+  type 'a datatype_kind =
+    | Tuple : tuple datatype_kind
+    | Other : other datatype_kind
+
   type _ kind =
     | Uninterpreted : uninterpreted kind
     | Bool : bool kind
@@ -57,7 +64,7 @@ module S = struct
     | Real : real kind
     | Bv : bv kind
     | Array : ('a,'b,'final) array_instance * 'final kind-> ('a, 'b) array kind
-    | Datatype : datatype kind
+    | Datatype : 'a datatype_kind -> 'a datatype kind
     | Relation : relation kind
     | Finite_domain : finite_domain kind
     | Floating_point : floating_point kind
@@ -176,6 +183,7 @@ module type Sort = sig
   val context : _ t -> Context.t
 
   val create_bitvector : Context.t -> bits:int -> S.bv t
+  val create_boolean : Context.t -> S.bool t
 end
 
 module type Ordering = sig

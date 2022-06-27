@@ -136,6 +136,10 @@ and Sort : Sort
     Z3.BitVector.mk_sort ctx bits
     |> unsafe_of_raw
 
+  let create_boolean ctx =
+    Z3.Boolean.mk_sort ctx
+    |> unsafe_of_raw
+
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.sort)
     let unsafe_of_native = (Obj.magic : Z3native.sort -> _ t)
@@ -182,7 +186,7 @@ and Sort : Sort
       | Int -> [%message "Int"]
       | Real -> [%message "Real"]
       | Bv -> [%message "Bv"]
-      | Datatype -> [%message "Datatype"]
+      | Datatype k -> [%message "Datatype" ~_:(k : _ datatype_kind)]
       | Relation -> [%message "Relation"]
       | Finite_domain -> [%message "Finite_domain"]
       | Floating_point -> [%message "Floating_point"]
@@ -204,6 +208,11 @@ and Sort : Sort
       | x :: xs ->
         (sexp_of_t () x)
         :: sexp_of_array_instance xs
+    and sexp_of_datatype_kind : 'a . _ -> 'a S.datatype_kind -> Sexp.t =
+      fun (type a) _ (dt : a S.datatype_kind) ->
+      match dt with
+      | Tuple -> [%message "Tuple"]
+      | Other -> [%message "Other"]
 
     let rec kind_list_to_array_instance (list : S.packed_kind list) : S.packed_array_instance =
       match list with
@@ -242,7 +251,11 @@ and Sort : Sort
               , (Obj.magic : _ Kind.t -> _ Kind.t) (sort_kind range)
               )
       |> (Obj.magic : _ S.array Kind.t -> _ Kind.t)
-    | DATATYPE_SORT -> Obj.magic S.Datatype
+    | DATATYPE_SORT ->
+      begin match Z3.Tuple.get_num_fields (to_raw t) with
+        | _ -> Obj.magic (S.Datatype Tuple)
+        | exception (Z3.Error _) -> Obj.magic (S.Datatype Other)
+      end
     | RELATION_SORT -> Obj.magic S.Relation
     | FINITE_DOMAIN_SORT -> Obj.magic S.Finite_domain
     | FLOATING_POINT_SORT -> Obj.magic S.Floating_point
@@ -268,7 +281,11 @@ and Sort : Sort
           | None -> None
           | Some T -> Some T
       end
-    | S.Datatype, S.Datatype -> Some T
+    | S.Datatype a, S.Datatype b ->
+      begin match same_datatype_kind a b with
+        | None -> None
+        | Some T -> Some T
+      end
     | S.Relation, S.Relation -> Some T
     | S.Finite_domain, S.Finite_domain -> Some T
     | S.Floating_point, S.Floating_point -> Some T
@@ -278,6 +295,13 @@ and Sort : Sort
     | S.Char, S.Char -> Some T
     | S.Unknown, S.Unknown -> Some T
     | _, _ -> None
+  and same_datatype_kind
+    : 'a 'b . 'a S.datatype_kind -> 'b S.datatype_kind -> ('a, 'b) Type_equal.t option =
+    fun (type a b) (a : a S.datatype_kind) (b : b S.datatype_kind) : (a,b) Type_equal.t option ->
+    match a, b with
+    | Other, Other -> Some T
+    | Tuple, Tuple -> Some T
+    | _,_ -> None
   and same_array_kind_internal
     : 'a0 'a1 'a2 'b0 'b1 'b2 .
         ('a0,'a1,'a2) S.array_instance
