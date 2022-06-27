@@ -55,6 +55,8 @@ module S = struct
     | Int : int kind
     | Real : real kind
     | Bv : bv kind
+    (* CR smuenzel: This doesn't work properly, because it's hard to extract
+       additional arguments *)
     | Array : ('a kind * 'b kind) -> ('a -> 'b) array kind
     | Datatype : datatype kind
     | Relation : relation kind
