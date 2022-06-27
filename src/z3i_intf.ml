@@ -38,7 +38,7 @@ module S = struct
   type int = [ `Int ]
   type real = [ `Real ]
   type bv = [ `Bv ]
-  type 'a array = [ `Array of 'a]
+  type ('a, 'b) array = [ `Array of 'a * 'b]
   type datatype = [ `Datatype ]
   type relation = [ `Relation ]
   type finite_domain = [ `Finite_domain ]
@@ -55,7 +55,7 @@ module S = struct
     | Int : int kind
     | Real : real kind
     | Bv : bv kind
-    | Array : (_,'a,'final) array_instance * 'final kind-> 'a array kind
+    | Array : ('a,'b,'final) array_instance * 'final kind-> ('a, 'b) array kind
     | Datatype : datatype kind
     | Relation : relation kind
     | Finite_domain : finite_domain kind
@@ -480,20 +480,20 @@ module type Quantifier = sig
   val exists_const : 's create_quantifer_const
 
   val lambda_const
-    :  (_, 'f, 'body) Lambda_list.t
+    :  ('a, 'f, 'body) Lambda_list.t
     -> body:'body Expr.t
-    -> 'f S.array t
+    -> ('a, 'f) S.array t
 
   val lambda_single
     :  Symbol.t
     -> 'a Sort.t
     -> body:'s Expr.t
-    -> ('a -> 's) S.array t
+    -> ('a * Nothing.t, 'a -> 's) S.array t
 
   val lambda_single_const
     :  'a Expr.t
     -> body:'s Expr.t
-    -> ('a -> 's) S.array t
+    -> ('a * Nothing.t, 'a -> 's) S.array t
 end
 
 module type Pattern = sig
@@ -509,13 +509,11 @@ module type ZArray = sig
   module Types : Types
   open Types
 
-  type 'a t = 'a S.array Expr.t
+  type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
-  (* CR smuenzel: select needs to supply all arguments, partial application is not
-     supported, but our types don't show that. *)
-  val select_single : ('a -> 'b) t -> 'a Expr.t -> 'b Expr.t
+  val select_single : ('a * Nothing.t, ('a -> 'b)) t -> 'a Expr.t -> 'b Expr.t
 
-  val select : 'f t -> (_,'f,'body) Lambda_list.t -> 'body Expr.t
+  val select : ('a, 'f) t -> ('a,'f,'body) Lambda_list.t -> 'body Expr.t
 end
 
 module rec Types : Types

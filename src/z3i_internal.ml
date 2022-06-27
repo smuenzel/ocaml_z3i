@@ -163,7 +163,7 @@ and Sort : Sort
 
   let all_domains t = all_domains [] t 0
 
-  let range (type a b) (t : (a -> b) S.array t) : b t =
+  let range (type a b c) (t : (c, (a -> b)) S.array t) : b t =
     Z3.Z3Array.get_range (to_raw t)
     |> unsafe_of_raw
 
@@ -1048,7 +1048,7 @@ and Quantifier : Quantifier
       (type a final inputs)
       (variables : (inputs, a,final) Lambda_list.t)
       ~(body:final Expr.t)
-    : a S.array t 
+    : (inputs, a) S.array t 
     =
     let _, variables = Lambda_list.to_list variables in
     ZQuantifier.mk_lambda_const
@@ -1105,13 +1105,17 @@ and ZArray : ZArray
   with module Types := Types
 = struct
 
-  type 'a t = 'a S.array Expr.t
+  type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
-  let select_single (type a b) (ar : (a -> b) t) (s : a Expr.t) : b Expr.t =
+  let select_single (type a b) (ar : (a * Nothing.t, a -> b) t) (s : a Expr.t) : b Expr.t =
     Z3.Z3Array.mk_select (Expr.context ar) (Expr.to_raw ar) (Expr.to_raw s)
     |> Expr.unsafe_of_raw
 
-  let select (type body) ar (ss : (_,_,body) Lambda_list.t) : body Expr.t =
+  let select
+      (type inputs body)
+      (ar : (inputs,_) S.array Expr.t)
+      (ss : (inputs,_,body) Lambda_list.t)
+    : body Expr.t =
     let length, as_list = Lambda_list.to_list ss in
     Z3native.mk_select_n
       (Expr.context ar |> Context.Native.to_native)
