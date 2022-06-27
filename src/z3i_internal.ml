@@ -433,9 +433,12 @@ and Bitvector : Bitvector
 
   let is_add_overflow ~signed a b : Boolean.t =
     let ctx = Expr.context a in
-    let a = (a : _ Expr.t :> Z3.Expr.expr) in
-    let b = (b : _ Expr.t :> Z3.Expr.expr) in
-    Expr.unsafe_of_raw (ZBitvector.mk_add_no_overflow ctx a b signed)
+    Expr.unsafe_of_raw (ZBitvector.mk_add_no_overflow ctx (Expr.to_raw a) (Expr.to_raw b) signed)
+    |> Boolean.not
+
+  let is_sub_underflow ~signed a b : Boolean.t =
+    let ctx = Expr.context a in
+    Expr.unsafe_of_raw (ZBitvector.mk_sub_no_underflow ctx (Expr.to_raw a) (Expr.to_raw b) signed)
     |> Boolean.not
 
   let concat = Wrap.binary ZBitvector.mk_concat
