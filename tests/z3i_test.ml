@@ -15,7 +15,7 @@ let%expect_test "tuple" =
   Sort.sort_kind (Sort.unsafe_of_raw sort)
   |> [%sexp_of: _ Sort.Kind.t]
   |> print_s;
-  [%expect {| (Datatype Tuple) |}]
+  [%expect {| (Datatype (Tuple (Bool Bv))) |}]
 
 let%expect_test "popcount" =
   let open Z3i in

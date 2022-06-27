@@ -53,9 +53,7 @@ module S = struct
   type tuple = [ `Tuple ]
   type other = [ `Other ]
 
-  type 'a datatype_kind =
-    | Tuple : tuple datatype_kind
-    | Other : other datatype_kind
+  [@@@ocaml.warning "-30"]
 
   type _ kind =
     | Uninterpreted : uninterpreted kind
@@ -80,6 +78,14 @@ module S = struct
     | K : _ kind -> packed_kind [@@unboxed]
   and packed_array_instance =
     | A : (_,_,_) array_instance -> packed_array_instance [@@unboxed]
+  and 'a datatype_kind =
+    | Tuple : 'a tuple_instance -> 'a tuple_instance datatype_kind
+    | Other : other datatype_kind
+  and _ tuple_instance =
+    | [] : Nothing.t tuple_instance
+    | (::) : 'arg kind * 'next_arg tuple_instance -> ('arg * 'next_arg) tuple_instance
+  and packed_tuple_instance =
+    | TP : _ tuple_instance -> packed_tuple_instance
 end
 
 module type Native = sig

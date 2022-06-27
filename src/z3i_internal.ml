@@ -171,6 +171,13 @@ and Sort : Sort
     Z3.Z3Array.get_range (to_raw t)
     |> unsafe_of_raw
 
+  let tuple_elements s =
+    let raw = to_raw s in
+    Z3.Tuple.get_field_decls raw
+    |> List.map ~f:Z3.FuncDecl.get_range
+    |> unsafe_of_raw_list
+    |> pack_list
+
   let context t =
     Z3native.context_of_ast (Native.to_native t)
     |> Context.Native.unsafe_of_native
@@ -211,8 +218,17 @@ and Sort : Sort
     and sexp_of_datatype_kind : 'a . _ -> 'a S.datatype_kind -> Sexp.t =
       fun (type a) _ (dt : a S.datatype_kind) ->
       match dt with
-      | Tuple -> [%message "Tuple"]
+      | Tuple i ->
+        let i = sexp_of_tuple_instance () i in
+        [%message "Tuple" ~_:(i : Sexp.t list)]
       | Other -> [%message "Other"]
+    and sexp_of_tuple_instance : 'a . _ -> 'a S.tuple_instance -> Sexp.t list =
+      fun (type a) _ (a : a S.tuple_instance) ->
+      match a with
+      | [] -> []
+      | x :: xs ->
+        (sexp_of_t () x)
+        :: sexp_of_tuple_instance () xs
 
     let rec kind_list_to_array_instance (list : S.packed_kind list) : S.packed_array_instance =
       match list with
@@ -220,6 +236,13 @@ and Sort : Sort
       | K x :: xs -> 
         let S.A xs = kind_list_to_array_instance xs in
         S.A (x :: xs)
+
+    let rec kind_list_to_tuple_instance (list : S.packed_kind list) : S.packed_tuple_instance =
+      match list with
+      | [] -> S.TP []
+      | K x :: xs -> 
+        let S.TP xs = kind_list_to_tuple_instance xs in
+        S.TP (x :: xs)
   end
 
   let same (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
@@ -227,7 +250,8 @@ and Sort : Sort
     then Obj.magic (Some Type_equal.T)
     else None
 
-  let rec sort_kind (type s) (t : s t) : s S.kind =
+  let rec sort_kind : 's . 's t -> 's S.kind =
+    fun (type s) (t : s t) : s S.kind ->
     match ZSort.get_sort_kind (to_raw t) with
     | UNINTERPRETED_SORT -> Obj.magic S.Uninterpreted
     | BOOL_SORT -> Obj.magic S.Bool
@@ -253,7 +277,14 @@ and Sort : Sort
       |> (Obj.magic : _ S.array Kind.t -> _ Kind.t)
     | DATATYPE_SORT ->
       begin match Z3.Tuple.get_num_fields (to_raw t) with
-        | _ -> Obj.magic (S.Datatype Tuple)
+        | _ -> 
+          let elements = tuple_elements t in
+          let TP tuple_instance =
+            List.map elements
+              ~f:(fun (T x) -> S.K (sort_kind x))
+            |> Kind.kind_list_to_tuple_instance
+          in
+          Obj.magic (S.Datatype (Tuple tuple_instance))
         | exception (Z3.Error _) -> Obj.magic (S.Datatype Other)
       end
     | RELATION_SORT -> Obj.magic S.Relation
@@ -300,7 +331,11 @@ and Sort : Sort
     fun (type a b) (a : a S.datatype_kind) (b : b S.datatype_kind) : (a,b) Type_equal.t option ->
     match a, b with
     | Other, Other -> Some T
-    | Tuple, Tuple -> Some T
+    | Tuple a, Tuple b ->
+      begin match same_tuple_instance a b with
+        | None -> None
+        | Some T -> Some T
+      end
     | _,_ -> None
   and same_array_kind_internal
     : 'a0 'a1 'a2 'b0 'b1 'b2 .
@@ -324,6 +359,20 @@ and Sort : Sort
           match same_array_kind_internal xs ys eq_res with
           | None -> None
           | Some T -> Some T
+  and same_tuple_instance
+    : 'a 'b . 'a S.tuple_instance -> 'b S.tuple_instance -> ('a, 'b) Type_equal.t option =
+    fun (type a b) (a : a S.tuple_instance) (b : b S.tuple_instance) : (a, b) Type_equal.t option ->
+    match a, b with
+    | [], [] -> Some T
+    | [], _ :: _ -> None
+    | _ :: _, [] -> None
+    | x :: xs, y :: ys ->
+      match same_kind_internal x y with
+      | None -> None
+      | Some T ->
+        match same_tuple_instance xs ys with
+        | None -> None
+        | Some T -> Some T
 
   let same_kind (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
     same_kind_internal (sort_kind a) (sort_kind b)
