@@ -357,7 +357,7 @@ and Bitvector : Bitvector
   let mul = Wrap.binary ZBitvector.mk_mul
 
   let shift_left t ~count =
-    ZBitvector.mk_shl (Expr.context t) (Expr.to_raw count) (Expr.to_raw count)
+    ZBitvector.mk_shl (Expr.context t) (Expr.to_raw t) (Expr.to_raw count)
     |> Expr.unsafe_of_raw
 
   let is_add_overflow ~signed a b : Boolean.t =
