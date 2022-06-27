@@ -456,17 +456,16 @@ module type Quantifier = sig
   val exists : 's create_quantifer
   val exists_const : 's create_quantifer_const
 
-  (*
-  val lambda
-    : (Symbol.t * Sort.packed) list
-    -> body:'s Expr.t
-    -> _ t
+  module Lambda_list : sig
+    type ('remaining, 'final) t =
+      | [] : ('res, 'res) t
+      | (::) : 'arg Expr.t * ('next, 'final) t -> ('arg -> 'next, 'final) t
+  end
 
   val lambda_const
-    :  Expr.packed list
-    -> body:'s Expr.t
-    -> 's t
-     *)
+    :  ('f, 'body) Lambda_list.t
+    -> body:'body Expr.t
+    -> 'f t
 
   val lambda_single
     :  Symbol.t

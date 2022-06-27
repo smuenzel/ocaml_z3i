@@ -996,6 +996,31 @@ and Quantifier : Quantifier
     |> unsafe_of_raw
      *)
 
+  module Lambda_list = struct
+    type ('remaining, 'final) t =
+      | [] : ('res, 'res) t
+      | (::) : 'arg Expr.t * ('next, 'final) t -> ('arg -> 'next, 'final) t
+
+    let rec to_list : 'a 'final . ('a, 'final) t -> Expr.packed list =
+      fun (type a final) (t : (a, final) t) ->
+      match t with
+      | [] -> ([] : _ list)
+      | x :: xs -> Expr.T x :: to_list xs
+  end
+
+  let lambda_const
+      (type a final)
+      (variables : (a,final) Lambda_list.t)
+      ~(body:final Expr.t)
+    : a t 
+    =
+    let variables = Lambda_list.to_list variables in
+    ZQuantifier.mk_lambda_const
+      (Expr.context body)
+      (Expr.to_raw_unpack_list variables)
+      (Expr.to_raw body)
+    |> unsafe_of_raw
+
   let lambda_single
       symbol
       sort
