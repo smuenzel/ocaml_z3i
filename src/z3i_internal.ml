@@ -139,8 +139,13 @@ and Expr : Expr
 
 end
 
-and Sort : Sort
-  with module Types := Types
+and Sort : sig
+  include Sort
+    with module Types := Types
+
+  val func_decl_domain : (_,_) Function_declaration.t -> S.packed_lambda_instance
+  val func_decl_range : (_,'range) Function_declaration.t -> 'range Kind.t
+end
 = struct
   module ZSort = Z3.Sort
 
@@ -155,7 +160,8 @@ and Sort : Sort
     let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
   end
 
-  let domain_n t i =
+
+  let array_domain_n t i =
     try
       let result =
         Z3native.get_array_sort_domain_n
@@ -168,13 +174,13 @@ and Sort : Sort
     with
     | Z3.Error _ -> None
 
-  let rec all_domains acc t i =
-    match domain_n t i with
+  let rec all_array_domains acc t i =
+    match array_domain_n t i with
     | None -> List.rev acc
     | Some packed ->
-      all_domains (packed :: acc) t (i + 1)
+      all_array_domains (packed :: acc) t (i + 1)
 
-  let all_domains t = all_domains [] t 0
+  let all_array_domains t = all_array_domains [] t 0
 
   let range (type a b c) (t : (c, (a -> b)) S.array t) : b t =
     Z3.Z3Array.get_range (to_raw t)
@@ -211,19 +217,19 @@ and Sort : Sort
       | Re -> [%message "Re"]
       | Char -> [%message "Char"]
       | Unknown -> [%message "Unknown"]
-      | Array (array_instance, range) ->
-        let domain = sexp_of_array_instance array_instance in
+      | Array (lambda_instance, range) ->
+        let domain = sexp_of_lambda_instance lambda_instance in
         [%message "Array"
             (domain : Sexp.t list)
             (range : _ t)
         ]
-    and sexp_of_array_instance : 'a 'b 'c . ('a,'b,'c) S.array_instance -> Sexp.t list =
-      fun (type a b c) (i : (a,b,c) S.array_instance) ->
+    and sexp_of_lambda_instance : 'a 'b 'c . ('a,'b,'c) S.lambda_instance -> Sexp.t list =
+      fun (type a b c) (i : (a,b,c) S.lambda_instance) ->
       match i with
       | [] -> []
       | x :: xs ->
         (sexp_of_t () x)
-        :: sexp_of_array_instance xs
+        :: sexp_of_lambda_instance xs
     and sexp_of_datatype_kind : 'a . _ -> 'a S.datatype_kind -> Sexp.t =
       fun (type a) _ (dt : a S.datatype_kind) ->
       match dt with
@@ -239,11 +245,11 @@ and Sort : Sort
         (sexp_of_t () x)
         :: sexp_of_tuple_instance () xs
 
-    let rec kind_list_to_array_instance (list : S.packed_kind list) : S.packed_array_instance =
+    let rec kind_list_to_lambda_instance (list : S.packed_kind list) : S.packed_lambda_instance =
       match list with
       | [] -> S.A []
       | K x :: xs -> 
-        let S.A xs = kind_list_to_array_instance xs in
+        let S.A xs = kind_list_to_lambda_instance xs in
         S.A (x :: xs)
 
     let rec kind_list_to_tuple_instance (list : S.packed_kind list) : S.packed_tuple_instance =
@@ -269,18 +275,18 @@ and Sort : Sort
     | BV_SORT -> Obj.magic S.Bv
     | ARRAY_SORT ->
       (* CR smuenzel: too much magic *)
-      let all_domains = all_domains t in
+      let all_array_domains = all_array_domains t in
       let range = range ((Obj.magic : s t -> _ S.array t) t) in
-      let all_domains =
-        List.map all_domains
+      let all_array_domains =
+        List.map all_array_domains
           ~f:(fun (T s) ->
               S.K
                 (sort_kind ((Obj.magic : _ t -> _ t) s)))
       in
-      let A all_domains =
-        Kind.kind_list_to_array_instance all_domains
+      let A all_array_domains =
+        Kind.kind_list_to_lambda_instance all_array_domains
       in
-      S.Array ( all_domains
+      S.Array ( all_array_domains
               , (Obj.magic : _ Kind.t -> _ Kind.t) (sort_kind range)
               )
       |> (Obj.magic : _ S.array Kind.t -> _ Kind.t)
@@ -304,6 +310,16 @@ and Sort : Sort
     | RE_SORT -> Obj.magic S.Re
     | CHAR_SORT -> Obj.magic S.Char
     | UNKNOWN_SORT -> Obj.magic S.Unknown
+
+  let func_decl_domain t =
+    let d = Z3.FuncDecl.get_domain (Function_declaration.to_raw t) in
+    let kind_list = List.map d ~f:(fun s -> S.K (sort_kind (Sort.unsafe_of_raw s))) in
+    Kind.kind_list_to_lambda_instance kind_list
+
+  let func_decl_range t =
+    Z3.FuncDecl.get_range (Function_declaration.to_raw t)
+    |> unsafe_of_raw
+    |> sort_kind
 
   let rec same_kind_internal : 'a 'b . 'a S.kind -> 'b S.kind -> ('a, 'b) Type_equal.t option =
     fun (type a b) (a : a S.kind) (b : b S.kind) : (a,b) Type_equal.t option ->
@@ -348,13 +364,13 @@ and Sort : Sort
     | _,_ -> None
   and same_array_kind_internal
     : 'a0 'a1 'a2 'b0 'b1 'b2 .
-        ('a0,'a1,'a2) S.array_instance
-      -> ('b0,'b1,'b2) S.array_instance
+        ('a0,'a1,'a2) S.lambda_instance
+      -> ('b0,'b1,'b2) S.lambda_instance
       -> ('a2, 'b2) Type_equal.t
       -> ('a0 * 'a1 * 'a2, 'b0 * 'b1 * 'b2) Type_equal.t option =
       fun (type a0 a1 a2 b0 b1 b2)
-      (a : (a0,a1,a2) S.array_instance)
-      (b : (b0,b1,b2) S.array_instance)
+      (a : (a0,a1,a2) S.lambda_instance)
+      (b : (b0,b1,b2) S.lambda_instance)
       (eq_res : (a2,b2) Type_equal.t)
     ->
       match a, b, eq_res with
@@ -736,9 +752,14 @@ and Function_declaration : Function_declaration
     ZFuncDecl.get_name (to_raw t)
     |> Symbol.context
 
+  let sort_kind (type a final) (t : (a, final) t) : (a,_,final) S.lambda_instance * final Sort.Kind.t =
+    let A domain = Sort.func_decl_domain t in
+    let range = Sort.func_decl_range t in
+    ((Obj.magic : (_,_,_) S.lambda_instance -> (_,_,_) S.lambda_instance) domain), range
+
   let app
       (type inputs body)
-      (t : (inputs,_) t)
+      (t : (inputs,body) t)
       (ss : (inputs,_,body) Lambda_list.t)
     : body Expr.t =
     let length, as_list = Lambda_list.to_list ss in
