@@ -21,6 +21,23 @@ module Make_raw(With_sort : With_sort) = struct
   let to_raw_unpack_list : packed list -> raw list = Obj.magic
 end
 
+module Make_raw2(With_sort : With_sort2) = struct
+  type raw = With_sort.raw
+  type ('a,'b) t = ('a,'b) With_sort.t
+  type packed = With_sort.packed = T : (_, _) t -> packed [@@unboxed]
+
+  let to_raw : (_, _) t -> raw = Obj.magic
+  let unsafe_of_raw : raw -> (_, _) t = Obj.magic
+
+  let to_raw_list : (_, _) t list -> raw list = Obj.magic
+  let unsafe_of_raw_list : raw list -> (_,_) t list = Obj.magic
+
+  let pack : (_,_) t -> packed = Obj.magic
+  let pack_list : (_,_) t list -> packed list = Obj.magic
+
+  let to_raw_unpack_list : packed list -> raw list = Obj.magic
+end
+
 module rec Context : Context 
   with module Types := Types
 = struct
@@ -704,13 +721,34 @@ end
 and Function_declaration : Function_declaration
   with module Types := Types
 = struct
-  include Make_raw(Types.Function_declaration)
+  module Lambda_list = Lambda_list
+
+  include Make_raw2(Types.Function_declaration)
 
   module ZFuncDecl = Z3.FuncDecl
 
   let to_string t = ZFuncDecl.to_string t
 
-  let sexp_of_t _ t = Sexp.List (Sexp.of_string_many (to_string (to_raw t)))
+  let sexp_of_t _ _ t = Sexp.List (Sexp.of_string_many (to_string (to_raw t)))
+
+  let context t =
+    (* CR smuenzel: no get_context *)
+    ZFuncDecl.get_name (to_raw t)
+    |> Symbol.context
+
+  let app
+      (type inputs body)
+      (t : (inputs,_) t)
+      (ss : (inputs,_,body) Lambda_list.t)
+    : body Expr.t =
+    let length, as_list = Lambda_list.to_list ss in
+    let context = context t in
+    Z3native.mk_app
+      (Context.Native.to_native context)
+      (Function_declaration.Native.to_native t)
+      length
+      (Expr.Native.to_native_list as_list)
+    |> Expr.Native.unsafe_of_native
 
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.func_decl)

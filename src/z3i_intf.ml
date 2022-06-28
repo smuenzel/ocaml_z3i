@@ -6,6 +6,12 @@ module type With_sort = sig
   type packed = T : _ t -> packed [@@unboxed]
 end
 
+module type With_sort2 = sig
+  type raw
+  type (_,_) t = private raw
+  type packed = T : (_,_) t -> packed [@@unboxed]
+end
+
 module type Types = sig
   module Ast : T
   module Context : T
@@ -13,7 +19,7 @@ module type Types = sig
   module Sort : With_sort
   module Symbol : T
   module Model : T
-  module Function_declaration : With_sort
+  module Function_declaration : With_sort2
   module Function_interpretation : T
   module Optimize : T
   module Solver : T
@@ -102,6 +108,15 @@ module type Native1 = sig
   val to_native_list : packed list -> native list
 end
 
+module type Native2 = sig
+  type (_,_) t
+  type packed
+  type native
+  val to_native : (_,_) t -> native
+  val unsafe_of_native : native -> (_,_) t
+  val to_native_list : packed list -> native list
+end
+
 module With_raw(With_sort : With_sort) = struct
   module type S = sig
     type raw = With_sort.raw
@@ -120,6 +135,27 @@ module With_raw(With_sort : With_sort) = struct
     val to_raw_unpack_list : packed list -> raw list
 
     module Native : Native1 with type 's t := 's t and type packed := packed
+  end
+end
+
+module With_raw2(With_sort : With_sort2) = struct
+  module type S = sig
+    type raw = With_sort.raw
+    type ('a,'b) t = ('a,'b) With_sort.t [@@deriving sexp_of]
+    type packed = With_sort.packed = T : (_,_) t -> packed [@@unboxed]
+
+    val to_raw : (_, _) t -> raw
+    val unsafe_of_raw : raw -> (_,_) t
+
+    val to_raw_list : (_,_) t list -> raw list
+    val unsafe_of_raw_list : raw list -> (_,_) t list
+
+    val pack : (_,_) t -> packed
+    val pack_list : (_,_) t list -> packed list
+
+    val to_raw_unpack_list : packed list -> raw list
+
+    module Native : Native2 with type ('a, 'b) t := ('a, 'b) t and type packed := packed
   end
 end
 
@@ -317,7 +353,16 @@ module type Function_declaration = sig
   module Types : Types
   open! Types
 
-  include With_raw(Function_declaration).S with type Native.native := Z3native.func_decl
+  module Lambda_list : module type of Typed_list.Make_lambda(Expr)
+
+  include With_raw2(Function_declaration).S with type Native.native := Z3native.func_decl
+      
+  val context : (_,_) t -> Context.t
+
+  val app
+    :  ('a, 'f) t
+    -> ('a, 'f, 'body) Lambda_list.t
+    -> 'body Expr.t
 end
 
 module type Function_interpretation = sig
