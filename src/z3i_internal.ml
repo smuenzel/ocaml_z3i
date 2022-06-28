@@ -245,6 +245,11 @@ end
         (sexp_of_t () x)
         :: sexp_of_tuple_instance () xs
 
+    type ('a,'b,'c) lambda_instance = ('a,'b,'c) S.lambda_instance
+
+    let sexp_of_lambda_instance _ _ _ li =
+      Sexp.List (sexp_of_lambda_instance li)
+
     let rec kind_list_to_lambda_instance (list : S.packed_kind list) : S.packed_lambda_instance =
       match list with
       | [] -> S.A []

@@ -213,6 +213,8 @@ module type Sort = sig
 
   module Kind : sig
     type 's t = 's S.kind [@@deriving sexp_of]
+
+    type ('a,'b,'c) lambda_instance = ('a,'b,'c) S.lambda_instance [@@deriving sexp_of]
   end
 
   val same : 'a t -> 'b t -> ('a, 'b) Type_equal.t option

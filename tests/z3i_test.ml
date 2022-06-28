@@ -15,7 +15,24 @@ let%expect_test "tuple" =
   Sort.sort_kind (Sort.unsafe_of_raw sort)
   |> [%sexp_of: _ Sort.Kind.t]
   |> print_s;
-  [%expect {| (Datatype (Tuple (Bool Bv))) |}]
+  [%expect {| (Datatype (Tuple (Bool Bv))) |}];
+  Z3.Tuple.get_field_decls sort
+  |> List.iter
+    ~f:(fun fdecl ->
+        Function_declaration.sort_kind (Function_declaration.unsafe_of_raw fdecl)
+        |> [%sexp_of : (_,_,_) Sort.Kind.lambda_instance * _ Sort.Kind.t]
+        |> print_s
+      );
+  [%expect {|
+    (((Datatype (Tuple (Bool Bv)))) Bool)
+    (((Datatype (Tuple (Bool Bv)))) Bv) |}];
+  Z3.Tuple.get_mk_decl sort
+  |> Function_declaration.unsafe_of_raw
+  |> Function_declaration.sort_kind 
+  |> [%sexp_of : (_,_,_) Sort.Kind.lambda_instance * _ Sort.Kind.t]
+  |> print_s;
+  [%expect {| ((Bool Bv) (Datatype (Tuple (Bool Bv)))) |}]
+
 
 let%expect_test "popcount" =
   let open Z3i in
