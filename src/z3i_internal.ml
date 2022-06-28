@@ -74,7 +74,7 @@ and Expr : Expr
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.ast)
     let unsafe_of_native = (Obj.magic : Z3native.ast -> _ t)
-    let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
+    let to_native_list = (Obj.magic : packed list -> Z3native.ast list)
   end
 
   let context t =
@@ -701,6 +701,24 @@ and Model : Model
 
 end
 
+and Function_declaration : Function_declaration
+  with module Types := Types
+= struct
+  include Make_raw(Types.Function_declaration)
+
+  module ZFuncDecl = Z3.FuncDecl
+
+  let to_string t = ZFuncDecl.to_string t
+
+  let sexp_of_t _ t = Sexp.List (Sexp.of_string_many (to_string (to_raw t)))
+
+  module Native = struct
+    let to_native = (Obj.magic : _ t -> Z3native.func_decl)
+    let unsafe_of_native = (Obj.magic : Z3native.func_decl -> _ t)
+    let to_native_list = (Obj.magic : packed list -> Z3native.func_decl list)
+  end
+end
+
 and Function_interpretation : Function_interpretation
   with module Types := Types
 = struct
@@ -981,6 +999,7 @@ and Quantifier : Quantifier
   with module Types := Types
 = struct
 
+  module Lambda_list = Lambda_list
   module ZQuantifier = Z3.Quantifier
 
   include Make_raw(Types.Quantifier)
@@ -1180,6 +1199,8 @@ and ZArray : ZArray
   with module Types := Types
 = struct
 
+  module Lambda_list = Lambda_list
+
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
   let select_single (type a b) (ar : (a * Nothing.t, a -> b) t) (s : a Expr.t) : b Expr.t =
@@ -1200,20 +1221,33 @@ and ZArray : ZArray
     |> Expr.Native.unsafe_of_native
 end
 
-and Lambda_list : sig
-  include Lambda_list with module Types := Types
+and Lambda_list : module type of Typed_list.Make_lambda(Types.Expr)
+= Typed_list.Make_lambda(Types.Expr)
 
-  val to_list : (_,_,_) t -> int * (Expr.packed list)
-end = struct
-  include Types.Lambda_list
+and Symbol_sort_list
+  : Typed_list.Simple
+    with type ('arg, _) Inner.t = Types.Symbol.t * 'arg Types.Sort.t
+     and type _ Inner.packed = Types.Symbol.t * Types.Sort.packed
+= struct
+  module Inner = struct
+    include Symbol_sort_list.Inner
+    let pack (sy, so) = sy, Sort.T so
+  end
+  include Typed_list.Make_simple(Inner)
+end
 
-  let rec to_list : 'inputs 'a 'final . ('inputs, 'a, 'final) t -> int * Expr.packed list =
-    fun (type inputs a final) (t : (inputs, a, final) t) ->
-    match t with
-    | [] -> 0, ([] : _ list)
-    | x :: xs ->
-      let length, rest = to_list xs in
-      length + 1
-    , Expr.T x :: rest
+module ZTuple : ZTuple
+  with module Types := Types
+   and module Symbol_sort_list := Symbol_sort_list
+= struct
+
+  module Symbol_sort_list = Symbol_sort_list
+
+  module Z3Tuple = Z3.Tuple
+
+  type 'a t = 'a S.tuple S.datatype Expr.t
+
+  let create_sort _ = assert false
+
 end
 

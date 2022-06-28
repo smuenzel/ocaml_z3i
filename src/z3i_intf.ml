@@ -13,7 +13,7 @@ module type Types = sig
   module Sort : With_sort
   module Symbol : T
   module Model : T
-  module Function_declaration : T
+  module Function_declaration : With_sort
   module Function_interpretation : T
   module Optimize : T
   module Solver : T
@@ -22,12 +22,6 @@ module type Types = sig
       | Unsatisfiable
       | Unknown of string
       | Satisfiable of 'a
-  end
-  module Lambda_list : sig
-    (* CR smuenzel: we can get rid of the second argument *)
-    type ('inputs, 'remaining, 'final) t =
-      | [] : (Nothing.t, 'res, 'res) t
-      | (::) : 'arg Expr.t * ('next_args, 'next, 'final) t -> (('arg * 'next_args), 'arg -> 'next, 'final) t
   end
   module Quantifier : With_sort
   module Pattern : With_sort
@@ -50,7 +44,7 @@ module S = struct
   type char = [ `Char ]
   type unknown = [ `Unknown ]
 
-  type tuple = [ `Tuple ]
+  type 'a tuple = [ `Tuple of 'a ]
   type other = [ `Other ]
 
   [@@@ocaml.warning "-30"]
@@ -73,19 +67,23 @@ module S = struct
     | Unknown : unknown kind
   and ('inputs, 'remaining, 'final) array_instance =
     | [] : (Nothing.t, 'res, 'res) array_instance
-    | (::) : 'arg kind * ('next_args, 'next, 'final) array_instance -> (('arg * 'next_args), 'arg -> 'next, 'final) array_instance
+    | (::)
+      : 'arg kind * ('next_args, 'next, 'final) array_instance
+        -> (('arg * 'next_args), 'arg -> 'next, 'final) array_instance
   and packed_kind =
     | K : _ kind -> packed_kind [@@unboxed]
   and packed_array_instance =
     | A : (_,_,_) array_instance -> packed_array_instance [@@unboxed]
   and 'a datatype_kind =
-    | Tuple : 'a tuple_instance -> 'a tuple_instance datatype_kind
+    | Tuple : 'a tuple_instance -> 'a tuple datatype_kind
     | Other : other datatype_kind
   and _ tuple_instance =
     | [] : Nothing.t tuple_instance
-    | (::) : 'arg kind * 'next_arg tuple_instance -> ('arg * 'next_arg) tuple_instance
+    | (::)
+      : 'arg kind * 'next_arg tuple_instance
+        -> ('arg * 'next_arg) tuple_instance
   and packed_tuple_instance =
-    | TP : _ tuple_instance -> packed_tuple_instance
+    | TP : _ tuple_instance -> packed_tuple_instance [@@unboxed]
 end
 
 module type Native = sig
@@ -315,6 +313,13 @@ module type Model = sig
   module Native : Native with type t := t and type native := Z3native.model
 end
 
+module type Function_declaration = sig
+  module Types : Types
+  open! Types
+
+  include With_raw(Function_declaration).S with type Native.native := Z3native.func_decl
+end
+
 module type Function_interpretation = sig
   module Types : Types
   open! Types
@@ -453,18 +458,11 @@ module type Boolean = sig
   end
 end
 
-module type Lambda_list = sig
-  module Types : Types
-  open Types
-
-  type ('inputs, 'remaining, 'final) t =
-    | [] : (Nothing.t, 'res, 'res) t
-    | (::) : 'arg Expr.t * ('next_args, 'next, 'final) t -> (('arg * 'next_args), 'arg -> 'next, 'final) t
-end
-
 module type Quantifier = sig
   module Types : Types
   open Types
+
+  module Lambda_list : module type of Typed_list.Make_lambda(Expr)
 
   type 's t = 's Quantifier.t
 
@@ -526,11 +524,29 @@ module type ZArray = sig
   module Types : Types
   open Types
 
+  module Lambda_list : module type of Typed_list.Make_lambda(Expr)
+
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
   val select_single : ('a * Nothing.t, ('a -> 'b)) t -> 'a Expr.t -> 'b Expr.t
 
   val select : ('a, 'f) t -> ('a,'f,'body) Lambda_list.t -> 'body Expr.t
+end
+
+module type ZTuple = sig
+  module Types : Types
+  open Types
+
+  module Symbol_sort_list
+    : Typed_list.Simple_t2
+      with type ('arg,_) Inner.t = Symbol.t * 'arg Sort.t
+
+  type 'a t = 'a S.tuple S.datatype Expr.t
+
+  val create_sort
+    : ('a, 'res) Symbol_sort_list.t
+    -> ('a S.tuple S.datatype as 'res) Sort.t
+
 end
 
 module rec Types : Types
@@ -540,7 +556,7 @@ module rec Types : Types
    and type Expr.raw = Z3.Expr.expr
    and type Symbol.t = Z3.Symbol.symbol
    and type Model.t = Z3.Model.model
-   and type Function_declaration.t = Z3.FuncDecl.func_decl
+   and type Function_declaration.raw = Z3.FuncDecl.func_decl
    and type Function_interpretation.t = Z3.Model.FuncInterp.func_interp
    and type Solver.t = Z3.Solver.solver
    and type Optimize.t = Z3.Optimize.optimize
@@ -552,10 +568,14 @@ module type Z3i_internal = sig
   module Ast : Ast with module Types := Types
   module Context : Context with module Types := Types
   module Expr : Expr with module Types := Types
+
+  module Lambda_list : module type of Typed_list.Make_lambda(Types.Expr)
+
   module Sort : Sort with module Types := Types
   module Bitvector : Bitvector with module Types := Types
   module Model : Model with module Types := Types
   module Function_interpretation : Function_interpretation with module Types := Types
+  module Function_declaration : Function_declaration with module Types := Types
   module Solver : Solver
     with module Types := Types
   module Solver_result : Solver_result
@@ -567,6 +587,14 @@ module type Z3i_internal = sig
   module Quantifier : Quantifier with module Types := Types
   module Pattern : Pattern with module Types := Types
   module ZArray : ZArray with module Types := Types
+
+  module Symbol_sort_list
+    : Typed_list.Simple_t2
+      with type ('arg,_) Inner.t = Symbol.t * 'arg Sort.t
+
+  module ZTuple
+    : ZTuple with module Types := Types
+              and module Symbol_sort_list := Symbol_sort_list
 
   module S = S
 end
