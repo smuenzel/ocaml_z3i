@@ -187,9 +187,6 @@ module type Sort = sig
   val sort_kind : 's t -> 's Kind.t
 
   val context : _ t -> Context.t
-
-  val create_bitvector : Context.t -> bits:int -> S.bv t
-  val create_boolean : Context.t -> S.bool t
 end
 
 module type Ordering = sig
@@ -207,6 +204,8 @@ module type Bitvector = sig
   open Types
 
   type t = S.bv Expr.t  
+
+  val create_sort : Context.t -> bits:int -> S.bv Sort.t
 
   val is_bv : 's Expr.t -> ('s, S.bv) Type_equal.t option
   val size : S.bv Sort.t -> int
@@ -431,6 +430,8 @@ end
 module type Boolean = sig
   module Types : Types
   open Types
+
+  val create_sort : Context.t -> S.bool Sort.t
 
   module With_context :
     Boolean_ops with type 'a wrap := Context.t -> 'a and module Types := Types

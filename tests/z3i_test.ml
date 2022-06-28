@@ -7,8 +7,8 @@ let%expect_test "tuple" =
   let sort_symbol = Symbol_builder.sym s in
   let des0 = Symbol_builder.sym s in
   let des1 = Symbol_builder.sym s in
-  let bool_s = Sort.create_boolean c in
-  let bv_s = Sort.create_bitvector c ~bits:8 in
+  let bool_s = Boolean.create_sort c in
+  let bv_s = Bitvector.create_sort c ~bits:8 in
   let sort =
     Z3.Tuple.mk_sort c sort_symbol [ des0; des1 ] [ Sort.to_raw bool_s; Sort.to_raw bv_s ]
   in
@@ -22,7 +22,7 @@ let%expect_test "popcount" =
   let c = Context.create () in
   let s = Solver.create c in
   let length = 64 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let value = Expr.const_i 0 sort in
   [ Boolean.eq (Bitvector.popcount value) (Bitvector.Numeral.int sort 1)
   ; Boolean.not (Bitvector.is_power_of_two value)
@@ -38,7 +38,7 @@ let%expect_test "shift_left" =
   let c = Context.create () in
   let s = Solver.create c in
   let length = 64 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let value = Expr.const_i 0 sort in
   [ Boolean.eq (Bitvector.shift_left (Bitvector.Numeral.int sort 1) ~count:value)
       (Bitvector.Numeral.int sort 8)
@@ -54,7 +54,7 @@ let%expect_test "parity" =
   let c = Context.create () in
   let s = Solver.create c in
   let length = 64 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let value = Expr.const_i 0 sort in
   [ Boolean.eq (Bitvector.parity value) (Bitvector.Numeral.bit1 c)
   ; Boolean.eq (Bitvector.popcount value) (Bitvector.Numeral.int sort 3)
@@ -70,7 +70,7 @@ let%expect_test "sign" =
   let c = Context.create () in
   let s = Solver.create c in
   let length = 64 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let value = Expr.const_i 0 sort in
   [ Boolean.eq (Bitvector.sign value) (Bitvector.Numeral.bit1 c)
   ]
@@ -85,7 +85,7 @@ let%expect_test "add overflow" =
   let c = Context.create () in
   let s = Solver.create c in
   let length = 64 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let value0 = Expr.const_i 0 sort in
   let value1 = Expr.const_i 1 sort in
   [ Bitvector.is_add_overflow ~signed:true value0 value1
@@ -103,7 +103,7 @@ let%expect_test "simplify" =
   let open Z3i in
   let c = Context.create () in
   let length = 1 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let value0 = Expr.const_i 0 sort in
   Bitvector.is_not_zero value0
   |> Boolean.not
@@ -125,7 +125,7 @@ let%expect_test "mux" =
   let c = Context.create () in
   let s = Solver.create c in
   let length = 64 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let value0 = Expr.const_i 0 sort in
   let value1 = Expr.const_i 1 sort in
   let minus_01 = Bitvector.sub value0 value1 in
@@ -172,7 +172,7 @@ let%expect_test "lambda" =
   let open Z3i in
   let c = Context.create () in
   let length = 64 in
-  let sort = Sort.create_bitvector c ~bits:length in
+  let sort = Bitvector.create_sort c ~bits:length in
   let s10 = Symbol.of_int c 10 in
   let s11 = Symbol.of_int c 11 in
   let s12 = Symbol.of_int c 12 in

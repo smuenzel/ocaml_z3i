@@ -16,7 +16,7 @@ let create
   let context = Expr.context head in
   let input_sort = Expr.sort head in
   let length = List.length inputs in
-  let selector_sort = Sort.create_bitvector context ~bits:length in
+  let selector_sort = Bitvector.create_sort context ~bits:length in
   let selector = Expr.const selector_symbol selector_sort in
   let selector_restrict = Bitvector.Set.has_single_member selector in
   let individuals =

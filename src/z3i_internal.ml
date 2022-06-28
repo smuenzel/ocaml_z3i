@@ -132,14 +132,6 @@ and Sort : Sort
   let sexp_of_t _ t =
     [%sexp_of: string] (ZSort.to_string (to_raw t))
 
-  let create_bitvector ctx ~bits : S.bv t =
-    Z3.BitVector.mk_sort ctx bits
-    |> unsafe_of_raw
-
-  let create_boolean ctx =
-    Z3.Boolean.mk_sort ctx
-    |> unsafe_of_raw
-
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.sort)
     let unsafe_of_native = (Obj.magic : Z3native.sort -> _ t)
@@ -458,6 +450,10 @@ and Bitvector : Bitvector
 
   type t = S.bv Expr.t
 
+  let create_sort ctx ~bits : S.bv Sort.t =
+    Z3.BitVector.mk_sort ctx bits
+    |> Sort.unsafe_of_raw
+
   let is_bv (type s) (e : s Expr.t) : (s, S.bv) Type_equal.t option =
     match Expr.sort_kind e with
     | S.Bv -> Some T
@@ -466,9 +462,9 @@ and Bitvector : Bitvector
   let size sort = ZBitvector.get_size (sort : _ Sort.t :> Z3.Sort.sort)
   let size_e e = size (Expr.sort e)
 
-  let const s ~bits = Expr.const s (Sort.create_bitvector (Symbol.context s) ~bits)
-  let const_s ctx s ~bits = Expr.const_s s (Sort.create_bitvector ctx ~bits)
-  let const_i ctx i ~bits = Expr.const_i i (Sort.create_bitvector ctx ~bits)
+  let const s ~bits = Expr.const s (Bitvector.create_sort (Symbol.context s) ~bits)
+  let const_s ctx s ~bits = Expr.const_s s (Bitvector.create_sort ctx ~bits)
+  let const_i ctx i ~bits = Expr.const_i i (Bitvector.create_sort ctx ~bits)
 
   let of_boolean e =
     let ctx = Expr.context e in
@@ -609,7 +605,7 @@ and Bitvector : Bitvector
   module Set = struct
     let const_empty ctx bits =
       Bitvector.Numeral.int
-        (Sort.create_bitvector ctx ~bits)
+        (Bitvector.create_sort ctx ~bits)
         0
 
     let union = or_
@@ -884,6 +880,10 @@ and Boolean : Boolean
 = struct
 
   module ZBoolean = Z3.Boolean
+
+  let create_sort ctx =
+    Z3.Boolean.mk_sort ctx
+    |> Sort.unsafe_of_raw
 
   (* CR smuenzel: this is not efficient *)
   let mk_and2 c a b =
