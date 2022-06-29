@@ -51,12 +51,12 @@ end
 module Make_lambda(Inner : Pack_inner) = struct
   module Inner = Inner
 
-  type ('inputs, 'remaining, 'final) t =
-    | [] : (Nothing.t, 'res, 'res) t
-    | (::) : 'arg Inner.t * ('next_args, 'next, 'final) t -> (('arg * 'next_args), 'arg -> 'next, 'final) t
+  type 'inputs t =
+    | [] : Nothing.t t
+    | (::) : 'arg Inner.t * 'next_args t -> ('arg * 'next_args) t
 
-  let rec to_list : 'inputs 'a 'final . ('inputs, 'a, 'final) t -> int * Inner.packed list =
-    fun (type inputs a final) (t : (inputs, a, final) t) ->
+  let rec to_list : 'inputs . 'inputs t -> int * Inner.packed list =
+    fun (type inputs) (t : inputs t) ->
     match t with
     | [] -> 0, ([] : _ list)
     | x :: xs ->

@@ -61,7 +61,7 @@ module S = struct
     | Int : int kind
     | Real : real kind
     | Bv : bv kind
-    | Array : ('a,'b,'final) lambda_instance * 'final kind-> ('a, 'b) array kind
+    | Array : ('a,'final) lambda_instance * 'final kind-> ('a, 'final) array kind
     | Datatype : 'a datatype_kind -> 'a datatype kind
     | Relation : relation kind
     | Finite_domain : finite_domain kind
@@ -71,15 +71,15 @@ module S = struct
     | Re : re kind
     | Char : char kind
     | Unknown : unknown kind
-  and ('inputs, 'remaining, 'final) lambda_instance =
-    | [] : (Nothing.t, 'res, 'res) lambda_instance
+  and ('inputs, 'final) lambda_instance =
+    | [] : (Nothing.t, 'res) lambda_instance
     | (::)
-      : 'arg kind * ('next_args, 'next, 'final) lambda_instance
-        -> (('arg * 'next_args), 'arg -> 'next, 'final) lambda_instance
+      : 'arg kind * ('next_args, 'final) lambda_instance
+        -> (('arg * 'next_args), 'final) lambda_instance
   and packed_kind =
     | K : _ kind -> packed_kind [@@unboxed]
   and packed_lambda_instance =
-    | A : (_,_,_) lambda_instance -> packed_lambda_instance [@@unboxed]
+    | A : (_,_) lambda_instance -> packed_lambda_instance [@@unboxed]
   and 'a datatype_kind =
     | Tuple : 'a tuple_instance -> 'a tuple datatype_kind
     | Other : other datatype_kind
@@ -217,15 +217,15 @@ module type Sort = sig
   module Kind : sig
     type 's t = 's S.kind [@@deriving sexp_of]
 
-    type ('a,'b,'c) lambda_instance = ('a,'b,'c) S.lambda_instance [@@deriving sexp_of]
+    type ('a,'c) lambda_instance = ('a,'c) S.lambda_instance [@@deriving sexp_of]
 
     val same : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
 
     val same_lambda_instance
-      : ('a0,'a1,'a2) S.lambda_instance
-      -> ('b0,'b1,'b2) S.lambda_instance
+      : ('a0, 'a2) S.lambda_instance
+      -> ('b0,'b2) S.lambda_instance
       -> ('a2, 'b2) Type_equal.t
-      -> ('a0 * 'a1 * 'a2, 'b0 * 'b1 * 'b2) Type_equal.t option
+      -> ('a0 * 'a2, 'b0 * 'b2) Type_equal.t option
   end
 
   val equal : _ t -> _ t -> bool
@@ -376,7 +376,7 @@ module type Function_declaration = sig
 
   val sort_kind
     : ('a, 'body) t 
-    -> ('a, _, 'body) S.lambda_instance * 'body S.kind
+    -> ('a, 'body) S.lambda_instance * 'body S.kind
 
   val same_witness
     :  ('a, 'a_body) t
@@ -385,7 +385,7 @@ module type Function_declaration = sig
 
   val app
     :  ('a, 'body) t
-    -> ('a, 'f, 'body) Lambda_list.t
+    -> 'a Lambda_list.t
     -> 'body Expr.t
 end
 
@@ -564,20 +564,20 @@ module type Quantifier = sig
   val exists_const : 's create_quantifer_const
 
   val lambda_const
-    :  ('a, 'f, 'body) Lambda_list.t
+    :  'a Lambda_list.t
     -> body:'body Expr.t
-    -> ('a, 'f) S.array t
+    -> ('a, 'body) S.array t
 
   val lambda_single
     :  Symbol.t
     -> 'a Sort.t
     -> body:'s Expr.t
-    -> ('a * Nothing.t, 'a -> 's) S.array t
+    -> ('a * Nothing.t, 's) S.array t
 
   val lambda_single_const
     :  'a Expr.t
     -> body:'s Expr.t
-    -> ('a * Nothing.t, 'a -> 's) S.array t
+    -> ('a * Nothing.t, 's) S.array t
 end
 
 module type Pattern = sig
@@ -597,9 +597,9 @@ module type ZArray = sig
 
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
-  val select_single : ('a * Nothing.t, ('a -> 'b)) t -> 'a Expr.t -> 'b Expr.t
+  val select_single : ('a * Nothing.t, 'b) t -> 'a Expr.t -> 'b Expr.t
 
-  val select : ('a, 'f) t -> ('a,'f,'body) Lambda_list.t -> 'body Expr.t
+  val select : ('a, 'b) t -> 'a Lambda_list.t -> 'b Expr.t
 end
 
 module type ZTuple = sig

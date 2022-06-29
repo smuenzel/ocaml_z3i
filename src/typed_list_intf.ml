@@ -54,16 +54,16 @@ end
 module type Lambda_list_t1 = sig
   module Inner : T1
 
-  type ('inputs, 'remaining, 'final) t =
-    | [] : (Nothing.t, 'res, 'res) t
-    | (::) : 'arg Inner.t * ('next_args, 'next, 'final) t -> (('arg * 'next_args), 'arg -> 'next, 'final) t
+  type 'inputs t =
+    | [] : Nothing.t t
+    | (::) : 'arg Inner.t * 'next_args t -> ('arg * 'next_args) t
 end
 
 module type Lambda_list = sig
   module Inner : Pack_inner
   include Lambda_list_t1 with module Inner := Inner
 
-  val to_list : (_,_,_) t -> int * Inner.packed list
+  val to_list : _ t -> int * Inner.packed list
 end
 
 module type Typed_list = sig

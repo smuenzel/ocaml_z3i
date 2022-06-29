@@ -226,8 +226,8 @@ end
             (domain : Sexp.t list)
             (range : _ t)
         ]
-    and sexp_of_lambda_instance : 'a 'b 'c . ('a,'b,'c) S.lambda_instance -> Sexp.t list =
-      fun (type a b c) (i : (a,b,c) S.lambda_instance) ->
+    and sexp_of_lambda_instance : 'a 'c . ('a,'c) S.lambda_instance -> Sexp.t list =
+      fun (type a c) (i : (a,c) S.lambda_instance) ->
       match i with
       | [] -> []
       | x :: xs ->
@@ -248,9 +248,9 @@ end
         (sexp_of_t () x)
         :: sexp_of_tuple_instance () xs
 
-    type ('a,'b,'c) lambda_instance = ('a,'b,'c) S.lambda_instance
+    type ('a,'c) lambda_instance = ('a,'c) S.lambda_instance
 
-    let sexp_of_lambda_instance _ _ _ li =
+    let sexp_of_lambda_instance _ _ li =
       Sexp.List (sexp_of_lambda_instance li)
 
     let rec kind_list_to_lambda_instance (list : S.packed_kind list) : S.packed_lambda_instance =
@@ -309,18 +309,18 @@ end
         end
       | _,_ -> None
     and same_array_kind_internal
-      : 'a0 'a1 'a2 'b0 'b1 'b2 .
-          ('a0,'a1,'a2) S.lambda_instance
-        -> ('b0,'b1,'b2) S.lambda_instance
+      : 'a0 'a2 'b0 'b2 .
+          ('a0,'a2) S.lambda_instance
+        -> ('b0,'b2) S.lambda_instance
         -> ('a2, 'b2) Type_equal.t
-        -> ('a0 * 'a1 * 'a2, 'b0 * 'b1 * 'b2) Type_equal.t option =
-      fun (type a0 a1 a2 b0 b1 b2)
-        (a : (a0,a1,a2) S.lambda_instance)
-        (b : (b0,b1,b2) S.lambda_instance)
+        -> ('a0 * 'a2, 'b0 * 'b2) Type_equal.t option =
+      fun (type a0 a2 b0 b2)
+        (a : (a0,a2) S.lambda_instance)
+        (b : (b0,b2) S.lambda_instance)
         (eq_res : (a2,b2) Type_equal.t)
         ->
           match a, b, eq_res with
-          | [], [], T -> Some (Type_equal.T : (a0 * a1 * a2, b0 * b1 * b2) Type_equal.t)
+          | [], [], T -> Some (Type_equal.T : (a0 * a2, b0 * b2) Type_equal.t)
           | _ :: _, [], _ -> None
           | [], _ :: _, _ -> None
           | x :: xs, y :: ys, T ->
@@ -768,10 +768,10 @@ and Function_declaration : Function_declaration
     ZFuncDecl.get_name (to_raw t)
     |> Symbol.context
 
-  let sort_kind (type a final) (t : (a, final) t) : (a,_,final) S.lambda_instance * final Sort.Kind.t =
+  let sort_kind (type a final) (t : (a, final) t) : (a,final) S.lambda_instance * final Sort.Kind.t =
     let A domain = Sort.func_decl_domain t in
     let range = Sort.func_decl_range t in
-    ((Obj.magic : (_,_,_) S.lambda_instance -> (_,_,_) S.lambda_instance) domain), range
+    ((Obj.magic : (_,_) S.lambda_instance -> (_,_) S.lambda_instance) domain), range
 
   let same_witness
       (type a afinal b bfinal)
@@ -815,7 +815,7 @@ and Function_declaration : Function_declaration
   let app
       (type inputs body)
       (t : (inputs,body) t)
-      (ss : (inputs,_,body) Lambda_list.t)
+      (ss : inputs Lambda_list.t)
     : body Expr.t =
     let length, as_list = Lambda_list.to_list ss in
     let context = context t in
@@ -1257,10 +1257,10 @@ and Quantifier : Quantifier
       ~body
 
   let lambda_const
-      (type a final inputs)
-      (variables : (inputs, a,final) Lambda_list.t)
+      (type final inputs)
+      (variables : inputs Lambda_list.t)
       ~(body:final Expr.t)
-    : (inputs, a) S.array t 
+    : (inputs, final) S.array t 
     =
     let _, variables = Lambda_list.to_list variables in
     ZQuantifier.mk_lambda_const
@@ -1322,14 +1322,14 @@ and ZArray : ZArray
 
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
-  let select_single (type a b) (ar : (a * Nothing.t, a -> b) t) (s : a Expr.t) : b Expr.t =
+  let select_single (type a b) (ar : (a * Nothing.t, b) t) (s : a Expr.t) : b Expr.t =
     Z3.Z3Array.mk_select (Expr.context ar) (Expr.to_raw ar) (Expr.to_raw s)
     |> Expr.unsafe_of_raw
 
   let select
       (type inputs body)
-      (ar : (inputs,_) S.array Expr.t)
-      (ss : (inputs,_,body) Lambda_list.t)
+      (ar : (inputs,body) S.array Expr.t)
+      (ss : inputs Lambda_list.t)
     : body Expr.t =
     let length, as_list = Lambda_list.to_list ss in
     Z3native.mk_select_n
@@ -1338,6 +1338,7 @@ and ZArray : ZArray
       length
       (Expr.Native.to_native_list as_list)
     |> Expr.Native.unsafe_of_native
+
 end
 
 and Lambda_list : module type of Typed_list.Make_lambda(Types.Expr)

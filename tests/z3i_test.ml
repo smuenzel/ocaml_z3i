@@ -20,7 +20,7 @@ let%expect_test "tuple (raw)" =
   |> List.iter
     ~f:(fun fdecl ->
         Function_declaration.sort_kind (Function_declaration.unsafe_of_raw fdecl)
-        |> [%sexp_of : (_,_,_) Sort.Kind.lambda_instance * _ Sort.Kind.t]
+        |> [%sexp_of : (_,_) Sort.Kind.lambda_instance * _ Sort.Kind.t]
         |> print_s
       );
   [%expect {|
@@ -29,7 +29,7 @@ let%expect_test "tuple (raw)" =
   Z3.Tuple.get_mk_decl sort
   |> Function_declaration.unsafe_of_raw
   |> Function_declaration.sort_kind 
-  |> [%sexp_of : (_,_,_) Sort.Kind.lambda_instance * _ Sort.Kind.t]
+  |> [%sexp_of : (_,_) Sort.Kind.lambda_instance * _ Sort.Kind.t]
   |> print_s;
   [%expect {| ((Bool Bv) (Datatype (Tuple (Bool Bv)))) |}]
 
