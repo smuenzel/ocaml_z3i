@@ -10,7 +10,7 @@ module type Simple0_t1 = sig
   module Inner : T1
   type _ t =
     | [] : Nothing.t t
-    | (::) : 'arg Inner.t * 'next t -> ('arg * 'next_args) t
+    | (::) : 'arg Inner.t * 'next t -> ('arg * 'next) t
 end
 
 module type Simple0 = sig
@@ -30,7 +30,9 @@ module type Simple_t2 = sig
   module Inner : T2
   type (_,_) t =
     | [] : (Nothing.t, _) t
-    | (::) : ('arg, 'extra) Inner.t * ('next, 'extra) t -> (('arg * 'next_args), 'extra) t
+    | (::) : ('arg, 'extra) Inner.t * ('next, 'extra) t -> (('arg * 'next), 'extra) t
+  type _ packed =
+    | S : (_, 'extra) t -> 'extra packed [@@unboxed]
 end
 
 module type Simple = sig

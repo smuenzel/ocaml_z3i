@@ -5,7 +5,7 @@ include Typed_list_intf
 module Make_simple0(Inner : Simple0_inner) = struct
   type _ t =
     | [] : Nothing.t t
-    | (::) : 'arg Inner.t * 'next t -> ('arg * 'next_args) t
+    | (::) : 'arg Inner.t * 'next t -> ('arg * 'next) t
 
   let rec to_list : 'a . 'a t -> int * Inner.packed list =
     fun (type a) (t : a t) ->
@@ -20,7 +20,11 @@ end
 module Make_simple(Inner : Simple_inner) = struct
   type (_,_) t =
     | [] : (Nothing.t, _) t
-    | (::) : ('arg, 'extra) Inner.t * ('next, 'extra) t -> (('arg * 'next_args), 'extra) t
+    | (::) : ('arg, 'extra) Inner.t * ('next, 'extra) t -> (('arg * 'next), 'extra) t
+
+  type _ packed =
+    | S : (_, 'extra) t -> 'extra packed
+  [@@unboxed]
 
   let rec to_list : 'a 'extra . ('a, 'extra) t -> int * 'extra Inner.packed list =
     fun (type a extra) (t : (a, extra) t) ->

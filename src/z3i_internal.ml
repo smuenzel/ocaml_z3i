@@ -51,6 +51,7 @@ module rec Context : Context
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.context)
+    let to_native_list = (Obj.magic : t list -> Z3native.context list)
     let unsafe_of_native = (Obj.magic : Z3native.context -> t)
   end
 end
@@ -92,6 +93,7 @@ and Expr : Expr
     let to_native = (Obj.magic : _ t -> Z3native.ast)
     let unsafe_of_native = (Obj.magic : Z3native.ast -> _ t)
     let to_native_list = (Obj.magic : packed list -> Z3native.ast list)
+    let unsafe_of_native_list = (Obj.magic : Z3native.ast list -> packed list)
   end
 
   let context t =
@@ -158,6 +160,7 @@ end
     let to_native = (Obj.magic : _ t -> Z3native.sort)
     let unsafe_of_native = (Obj.magic : Z3native.sort -> _ t)
     let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
+    let unsafe_of_native_list = (Obj.magic : Z3native.sort list -> packed list)
   end
 
 
@@ -734,6 +737,7 @@ and Model : Model
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.model)
+    let to_native_list = (Obj.magic : t list -> Z3native.model list)
     let unsafe_of_native = (Obj.magic : Z3native.model -> t)
   end
 
@@ -780,6 +784,7 @@ and Function_declaration : Function_declaration
     let to_native = (Obj.magic : _ t -> Z3native.func_decl)
     let unsafe_of_native = (Obj.magic : Z3native.func_decl -> _ t)
     let to_native_list = (Obj.magic : packed list -> Z3native.func_decl list)
+    let unsafe_of_native_list = (Obj.magic : Z3native.func_decl list -> packed list)
   end
 end
 
@@ -854,6 +859,7 @@ and Solver : Solver
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.solver)
+    let to_native_list = (Obj.magic : t list -> Z3native.solver list)
     let unsafe_of_native = (Obj.magic : Z3native.solver -> t)
   end
 end
@@ -898,6 +904,7 @@ and Optimize : Optimize
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.optimize)
+    let to_native_list = (Obj.magic : t list -> Z3native.optimize list)
     let unsafe_of_native = (Obj.magic : Z3native.optimize -> t)
   end
 
@@ -953,6 +960,7 @@ and Symbol : Symbol
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.symbol)
+    let to_native_list = (Obj.magic : t list -> Z3native.symbol list)
     let unsafe_of_native = (Obj.magic : Z3native.symbol -> t)
   end
 end
@@ -1255,7 +1263,8 @@ and Pattern : Pattern
   module Native = struct
     let to_native = (Obj.magic : _ t -> Z3native.pattern)
     let unsafe_of_native = (Obj.magic : Z3native.pattern -> _ t)
-    let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
+    let to_native_list = (Obj.magic : packed list -> Z3native.pattern list)
+    let unsafe_of_native_list = (Obj.magic : Z3native.pattern list -> packed list)
   end
 end
 
@@ -1307,11 +1316,55 @@ module ZTuple : ZTuple
 
   module Symbol_sort_list = Symbol_sort_list
 
+  module Field_accessor = struct
+    type ('arg, 'extra) t = ('extra * Nothing.t,'arg) Function_declaration.t 
+    type 'extra packed = | T : (_, 'extra) t -> 'extra packed [@@unboxed]
+    let pack x = T x
+  end
+
+  module Field_accessor_list = Typed_list.Make_simple(Field_accessor)
+
   module Z3Tuple = Z3.Tuple
 
   type 'a t = 'a S.tuple S.datatype Expr.t
 
-  let create_sort _ = assert false
-
+  let create_sort
+    (type a)
+    symbol
+    (list : (a, 'res) Symbol_sort_list.t)
+    : ( (a S.tuple S.datatype as 'res) Sort.t
+        * (a,'res) Function_declaration.t
+        * (a,'res) Field_accessor_list.t
+      )
+    =
+    let length, list = Symbol_sort_list.to_list list in
+    let symbols, sorts = List.unzip list in
+    let sort, constructor, accessors =
+      Z3native.mk_tuple_sort
+        (Symbol.context symbol |> Context.Native.to_native)
+        (Symbol.Native.to_native symbol)
+        length
+        (Symbol.Native.to_native_list symbols)
+        (Sort.Native.to_native_list sorts)
+    in
+    let rec make_accessors : Function_declaration.packed list -> 'res Field_accessor_list.packed =
+      fun list ->
+      match (list : Function_declaration.packed list) with
+      | [] -> Field_accessor_list.(S [])
+      | T x :: xs ->
+        let S rest = make_accessors xs in
+        let x = (Obj.magic : (_, _) Function_declaration.t -> (_,_) Field_accessor.t) x in
+        Field_accessor_list.(S (x :: rest))
+    in
+    let Field_accessor_list.S accessors =
+      Function_declaration.Native.unsafe_of_native_list accessors
+      |> make_accessors
+    in
+    let accessors =
+      (Obj.magic : (_,'a) Field_accessor_list.t -> (a,a S.tuple S.datatype) Field_accessor_list.t) accessors
+    in
+    Sort.Native.unsafe_of_native sort
+  , Function_declaration.Native.unsafe_of_native constructor
+  , accessors
 end
 

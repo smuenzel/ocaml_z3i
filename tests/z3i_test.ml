@@ -1,6 +1,6 @@
 open! Core
 
-let%expect_test "tuple" =
+let%expect_test "tuple (raw)" =
   let open Z3i in
   let c = Context.create () in
   let s = Symbol_builder.create c in
@@ -33,6 +33,50 @@ let%expect_test "tuple" =
   |> print_s;
   [%expect {| ((Bool Bv) (Datatype (Tuple (Bool Bv)))) |}]
 
+let%expect_test "tuple" =
+  let open Z3i in
+  let c = Context.create () in
+  let s = Symbol_builder.create c in
+  let sort_symbol = Symbol_builder.sym s in
+  let des0 = Symbol_builder.sym s in
+  let des1 = Symbol_builder.sym s in
+  let bool_s = Boolean.create_sort c in
+  let bv_s = Bitvector.create_sort c ~bits:8 in
+  let des0_var_s = Symbol_builder.sym s in
+  let des1_var_s = Symbol_builder.sym s in
+  let des0_var = Expr.const des0_var_s bool_s in
+  let des1_var = Expr.const des1_var_s bv_s in
+  let sort, constructor, accessors =
+    ZTuple.create_sort
+      sort_symbol
+      [ des0, bool_s
+      ; des1, bv_s
+      ]
+  in
+  Sort.sort_kind sort
+  |> [%sexp_of: _ Sort.Kind.t]
+  |> print_s;
+  [%expect {| (Datatype (Tuple (Bool Bv))) |}];
+  let [ acc_des0; acc_des1 ] = accessors in
+  let v = Function_declaration.app constructor [ des0_var; des1_var ] in
+  print_s [%message "" (v : _ Expr.t)];
+  [%expect {| (v "(k!0 k!3 k!4)") |}];
+  let v = Expr.simplify v in
+  let retr_0 = Function_declaration.app acc_des0 [ v ] in
+  let retr_1 = Function_declaration.app acc_des1 [ v ] in
+  print_s [%message ""
+      (retr_0 : _ Expr.t)
+      (retr_1 : _ Expr.t)
+  ];
+  [%expect {| ((retr_0 "(k!1 (k!0 k!3 k!4))") (retr_1 "(k!2 (k!0 k!3 k!4))")) |}];
+  let retr_0 = Expr.simplify retr_0 in
+  let retr_1 = Expr.simplify retr_1 in
+  print_s [%message ""
+      (retr_0 : _ Expr.t)
+      (retr_1 : _ Expr.t)
+  ];
+  [%expect {| ((retr_0 k!3) (retr_1 k!4)) |}];
+  ()
 
 let%expect_test "popcount" =
   let open Z3i in

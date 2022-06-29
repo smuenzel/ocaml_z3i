@@ -96,6 +96,7 @@ module type Native = sig
   type t
   type native
   val to_native : t -> native
+  val to_native_list : t list -> native list
   val unsafe_of_native : native -> t
 end
 
@@ -106,6 +107,7 @@ module type Native1 = sig
   val to_native : _ t -> native
   val unsafe_of_native : native -> _ t
   val to_native_list : packed list -> native list
+  val unsafe_of_native_list : native list -> packed list
 end
 
 module type Native2 = sig
@@ -115,6 +117,7 @@ module type Native2 = sig
   val to_native : (_,_) t -> native
   val unsafe_of_native : native -> (_,_) t
   val to_native_list : packed list -> native list
+  val unsafe_of_native_list : native list -> packed list
 end
 
 module With_raw(With_sort : With_sort) = struct
@@ -592,12 +595,23 @@ module type ZTuple = sig
     : Typed_list.Simple_t2
       with type ('arg,_) Inner.t = Symbol.t * 'arg Sort.t
 
+  module Field_accessor 
+    : Typed_list.Simple_inner
+      with type ('arg, 'extra) t = ('extra * Nothing.t,'arg) Function_declaration.t
+
+  module Field_accessor_list
+    : Typed_list.Simple_t2
+      with module Inner := Field_accessor
+
   type 'a t = 'a S.tuple S.datatype Expr.t
 
   val create_sort
-    : ('a, 'res) Symbol_sort_list.t
-    -> ('a S.tuple S.datatype as 'res) Sort.t
-
+    :  Symbol.t
+    -> ('a, 'res) Symbol_sort_list.t
+    -> ( ('a S.tuple S.datatype as 'res) Sort.t
+         * ('a,'res) Function_declaration.t
+         * ('a,'res) Field_accessor_list.t
+         )
 end
 
 module rec Types : Types
