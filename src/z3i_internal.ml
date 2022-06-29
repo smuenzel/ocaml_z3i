@@ -43,7 +43,25 @@ module rec Context : Context
 = struct
   type t = Types.Context.t
 
-  let create ?(model = true) ?(proof = false) () =
+   (*
+  - proof  (Boolean)           Enable proof generation
+  - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting
+  - trace  (Boolean)           Tracing support for VCC
+  - trace_file_name (String)   Trace out file for VCC traces
+  - timeout (unsigned)         default timeout (in milliseconds) used for solvers
+  - well_sorted_check          type checker
+  - auto_config                use heuristics to automatically select solver and configure it
+  - model                      model generation for solvers, this parameter can be overwritten when creating a solver
+  - model_validate             validate models produced by solvers
+  - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
+  - encoding                   the string encoding used internally (must be either "unicode" - 18 bit, "bmp" - 16 bit or "ascii" - 8 bit)
+      *)
+
+  let create
+      ?(model = true)
+      ?(proof = false)
+      ()
+    =
     Z3.mk_context 
       [ "model", Bool.to_string model
       ; "proof", Bool.to_string proof 
@@ -881,7 +899,12 @@ and Solver : Solver
 
   module ZSolver = Z3.Solver
 
-  let create context = ZSolver.mk_solver context None
+  let create context =
+    let s = ZSolver.mk_solver context None in
+    let p = Z3.Params.mk_params context in
+    Z3.Params.add_bool p (Symbol.of_string context "ctrl_c") false;
+    ZSolver.set_parameters s p;
+    s
 
   let to_string = ZSolver.to_string
 
@@ -921,7 +944,12 @@ and Optimize : Optimize
 
   module ZOptimize = Z3.Optimize
 
-  let create context = ZOptimize.mk_opt context
+  let create context =
+    let s = ZOptimize.mk_opt context in
+    let p = Z3.Params.mk_params context in
+    Z3.Params.add_bool p (Symbol.of_string context "ctrl_c") false;
+    ZOptimize.set_parameters s p;
+    s
 
   let to_string t = ZOptimize.to_string t
 
