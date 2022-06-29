@@ -61,7 +61,7 @@ module S = struct
     | Int : int kind
     | Real : real kind
     | Bv : bv kind
-    | Array : ('a,'final) lambda_instance * 'final kind-> ('a, 'final) array kind
+    | Array : 'a lambda_instance * 'final kind-> ('a, 'final) array kind
     | Datatype : 'a datatype_kind -> 'a datatype kind
     | Relation : relation kind
     | Finite_domain : finite_domain kind
@@ -71,15 +71,15 @@ module S = struct
     | Re : re kind
     | Char : char kind
     | Unknown : unknown kind
-  and ('inputs, 'final) lambda_instance =
-    | [] : (Nothing.t, 'res) lambda_instance
+  and 'inputs  lambda_instance =
+    | [] : Nothing.t lambda_instance
     | (::)
-      : 'arg kind * ('next_args, 'final) lambda_instance
-        -> (('arg * 'next_args), 'final) lambda_instance
+      : 'arg kind * 'next_args lambda_instance
+        -> ('arg * 'next_args) lambda_instance
   and packed_kind =
     | K : _ kind -> packed_kind [@@unboxed]
   and packed_lambda_instance =
-    | A : (_,_) lambda_instance -> packed_lambda_instance [@@unboxed]
+    | A : _ lambda_instance -> packed_lambda_instance [@@unboxed]
   and 'a datatype_kind =
     | Tuple : 'a tuple_instance -> 'a tuple datatype_kind
     | Other : other datatype_kind
@@ -217,15 +217,14 @@ module type Sort = sig
   module Kind : sig
     type 's t = 's S.kind [@@deriving sexp_of]
 
-    type ('a,'c) lambda_instance = ('a,'c) S.lambda_instance [@@deriving sexp_of]
+    type 'a lambda_instance = 'a S.lambda_instance [@@deriving sexp_of]
 
     val same : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
 
     val same_lambda_instance
-      : ('a0, 'a2) S.lambda_instance
-      -> ('b0,'b2) S.lambda_instance
-      -> ('a2, 'b2) Type_equal.t
-      -> ('a0 * 'a2, 'b0 * 'b2) Type_equal.t option
+      : 'a0 S.lambda_instance
+      -> 'b0 S.lambda_instance
+      -> ('a0, 'b0) Type_equal.t option
   end
 
   val equal : _ t -> _ t -> bool
@@ -376,7 +375,7 @@ module type Function_declaration = sig
 
   val sort_kind
     : ('a, 'body) t 
-    -> ('a, 'body) S.lambda_instance * 'body S.kind
+    -> 'a S.lambda_instance * 'body S.kind
 
   val same_witness
     :  ('a, 'a_body) t

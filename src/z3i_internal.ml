@@ -244,8 +244,8 @@ end
             (domain : Sexp.t list)
             (range : _ t)
         ]
-    and sexp_of_lambda_instance : 'a 'c . ('a,'c) S.lambda_instance -> Sexp.t list =
-      fun (type a c) (i : (a,c) S.lambda_instance) ->
+    and sexp_of_lambda_instance : 'a . 'a S.lambda_instance -> Sexp.t list =
+      fun (type a) (i : a S.lambda_instance) ->
       match i with
       | [] -> []
       | x :: xs ->
@@ -266,9 +266,9 @@ end
         (sexp_of_t () x)
         :: sexp_of_tuple_instance () xs
 
-    type ('a,'c) lambda_instance = ('a,'c) S.lambda_instance
+    type 'a lambda_instance = 'a S.lambda_instance
 
-    let sexp_of_lambda_instance _ _ li =
+    let sexp_of_lambda_instance _ li =
       Sexp.List (sexp_of_lambda_instance li)
 
     let rec kind_list_to_lambda_instance (list : S.packed_kind list) : S.packed_lambda_instance =
@@ -296,8 +296,8 @@ end
       | S.Array (a0,a1), S.Array (b0, b1) ->
         begin match same_kind_internal a1 b1 with
           | None -> None
-          | Some (T as eq_res) ->
-            match same_array_kind_internal a0 b0 eq_res with
+          | Some T ->
+            match same_array_kind_internal a0 b0 with
             | None -> None
             | Some T -> Some T
         end
@@ -327,25 +327,23 @@ end
         end
       | _,_ -> None
     and same_array_kind_internal
-      : 'a0 'a2 'b0 'b2 .
-          ('a0,'a2) S.lambda_instance
-        -> ('b0,'b2) S.lambda_instance
-        -> ('a2, 'b2) Type_equal.t
-        -> ('a0 * 'a2, 'b0 * 'b2) Type_equal.t option =
-      fun (type a0 a2 b0 b2)
-        (a : (a0,a2) S.lambda_instance)
-        (b : (b0,b2) S.lambda_instance)
-        (eq_res : (a2,b2) Type_equal.t)
+      : 'a0 'b0 .
+          'a0 S.lambda_instance
+        -> 'b0 S.lambda_instance
+        -> ('a0, 'b0) Type_equal.t option =
+      fun (type a0 b0)
+        (a : a0 S.lambda_instance)
+        (b : b0 S.lambda_instance)
         ->
-          match a, b, eq_res with
-          | [], [], T -> Some (Type_equal.T : (a0 * a2, b0 * b2) Type_equal.t)
-          | _ :: _, [], _ -> None
-          | [], _ :: _, _ -> None
-          | x :: xs, y :: ys, T ->
+          match a, b with
+          | [], [] -> Some (Type_equal.T : (a0, b0) Type_equal.t)
+          | _ :: _, [] -> None
+          | [], _ :: _ -> None
+          | x :: xs, y :: ys ->
             match same_kind_internal x y with
             | None -> None
             | Some T ->
-              match same_array_kind_internal xs ys eq_res with
+              match same_array_kind_internal xs ys with
               | None -> None
               | Some T -> Some T
     and same_tuple_instance
@@ -786,10 +784,10 @@ and Function_declaration : Function_declaration
     ZFuncDecl.get_name (to_raw t)
     |> Symbol.context
 
-  let sort_kind (type a final) (t : (a, final) t) : (a,final) S.lambda_instance * final Sort.Kind.t =
+  let sort_kind (type a final) (t : (a, final) t) : a S.lambda_instance * final Sort.Kind.t =
     let A domain = Sort.func_decl_domain t in
     let range = Sort.func_decl_range t in
-    ((Obj.magic : (_,_) S.lambda_instance -> (_,_) S.lambda_instance) domain), range
+    ((Obj.magic : _ S.lambda_instance -> _ S.lambda_instance) domain), range
 
   let same_witness
       (type a afinal b bfinal)
@@ -825,7 +823,7 @@ and Function_declaration : Function_declaration
         match Sort.Kind.same ra rb with
         | None -> None
         | Some T ->
-          match Sort.Kind.same_lambda_instance ka kb T with
+          match Sort.Kind.same_lambda_instance ka kb with
           | None -> None
           | Some T -> Some (T : (a*afinal,b*bfinal) Type_equal.t)
       end
