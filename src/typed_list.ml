@@ -34,6 +34,18 @@ module Make_simple(Inner : Simple_inner) = struct
       let length, rest = to_list xs in
       length + 1
     , Inner.pack inner :: rest
+
+  let rec to_uniform_list_exn : 'a 'extra 'next. ('a * 'next, 'extra) t -> ('a, 'extra) Inner.t list =
+    fun (type a next extra) (t : (a * next , extra) t) : (a, extra) Inner.t list ->
+    match t with
+    | inner :: [] ->
+      [ inner ]
+    | inner :: (x :: _) as xs ->
+      let rest = to_uniform_list_exn xs in
+      match Inner.same_witness inner x with
+      | None -> raise_s [%message "List not uniform"]
+      | Some T ->
+        inner :: rest
 end
 
 module Make_lambda(Inner : Pack_inner) = struct

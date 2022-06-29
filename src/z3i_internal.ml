@@ -266,6 +266,89 @@ end
       | K x :: xs -> 
         let S.TP xs = kind_list_to_tuple_instance xs in
         S.TP (x :: xs)
+
+    let rec same_kind_internal : 'a 'b . 'a S.kind -> 'b S.kind -> ('a, 'b) Type_equal.t option =
+      fun (type a b) (a : a S.kind) (b : b S.kind) : (a,b) Type_equal.t option ->
+      match a, b with
+      | S.Uninterpreted, S.Uninterpreted -> Some T
+      | S.Bool, S.Bool -> Some T
+      | S.Int, S.Int -> Some T
+      | S.Real, S.Real -> Some T
+      | S.Bv, S.Bv -> Some T
+      | S.Array (a0,a1), S.Array (b0, b1) ->
+        begin match same_kind_internal a1 b1 with
+          | None -> None
+          | Some (T as eq_res) ->
+            match same_array_kind_internal a0 b0 eq_res with
+            | None -> None
+            | Some T -> Some T
+        end
+      | S.Datatype a, S.Datatype b ->
+        begin match same_datatype_kind a b with
+          | None -> None
+          | Some T -> Some T
+        end
+      | S.Relation, S.Relation -> Some T
+      | S.Finite_domain, S.Finite_domain -> Some T
+      | S.Floating_point, S.Floating_point -> Some T
+      | S.Rounding_mode, S.Rounding_mode -> Some T
+      | S.Seq, S.Seq -> Some T
+      | S.Re, S.Re -> Some T
+      | S.Char, S.Char -> Some T
+      | S.Unknown, S.Unknown -> Some T
+      | _, _ -> None
+    and same_datatype_kind
+      : 'a 'b . 'a S.datatype_kind -> 'b S.datatype_kind -> ('a, 'b) Type_equal.t option =
+      fun (type a b) (a : a S.datatype_kind) (b : b S.datatype_kind) : (a,b) Type_equal.t option ->
+      match a, b with
+      | Other, Other -> Some T
+      | Tuple a, Tuple b ->
+        begin match same_tuple_instance a b with
+          | None -> None
+          | Some T -> Some T
+        end
+      | _,_ -> None
+    and same_array_kind_internal
+      : 'a0 'a1 'a2 'b0 'b1 'b2 .
+          ('a0,'a1,'a2) S.lambda_instance
+        -> ('b0,'b1,'b2) S.lambda_instance
+        -> ('a2, 'b2) Type_equal.t
+        -> ('a0 * 'a1 * 'a2, 'b0 * 'b1 * 'b2) Type_equal.t option =
+      fun (type a0 a1 a2 b0 b1 b2)
+        (a : (a0,a1,a2) S.lambda_instance)
+        (b : (b0,b1,b2) S.lambda_instance)
+        (eq_res : (a2,b2) Type_equal.t)
+        ->
+          match a, b, eq_res with
+          | [], [], T -> Some (Type_equal.T : (a0 * a1 * a2, b0 * b1 * b2) Type_equal.t)
+          | _ :: _, [], _ -> None
+          | [], _ :: _, _ -> None
+          | x :: xs, y :: ys, T ->
+            match same_kind_internal x y with
+            | None -> None
+            | Some T ->
+              match same_array_kind_internal xs ys eq_res with
+              | None -> None
+              | Some T -> Some T
+    and same_tuple_instance
+      : 'a 'b . 'a S.tuple_instance -> 'b S.tuple_instance -> ('a, 'b) Type_equal.t option =
+      fun (type a b) (a : a S.tuple_instance) (b : b S.tuple_instance) : (a, b) Type_equal.t option ->
+      match a, b with
+      | [], [] -> Some T
+      | [], _ :: _ -> None
+      | _ :: _, [] -> None
+      | x :: xs, y :: ys ->
+        match same_kind_internal x y with
+        | None -> None
+        | Some T ->
+          match same_tuple_instance xs ys with
+          | None -> None
+          | Some T -> Some T
+
+    let same = same_kind_internal
+
+    let same_lambda_instance =  same_array_kind_internal
+
   end
 
   let same (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
@@ -329,87 +412,11 @@ end
     |> unsafe_of_raw
     |> sort_kind
 
-  let rec same_kind_internal : 'a 'b . 'a S.kind -> 'b S.kind -> ('a, 'b) Type_equal.t option =
-    fun (type a b) (a : a S.kind) (b : b S.kind) : (a,b) Type_equal.t option ->
-    match a, b with
-    | S.Uninterpreted, S.Uninterpreted -> Some T
-    | S.Bool, S.Bool -> Some T
-    | S.Int, S.Int -> Some T
-    | S.Real, S.Real -> Some T
-    | S.Bv, S.Bv -> Some T
-    | S.Array (a0,a1), S.Array (b0, b1) ->
-      begin match same_kind_internal a1 b1 with
-        | None -> None
-        | Some (T as eq_res) ->
-          match same_array_kind_internal a0 b0 eq_res with
-          | None -> None
-          | Some T -> Some T
-      end
-    | S.Datatype a, S.Datatype b ->
-      begin match same_datatype_kind a b with
-        | None -> None
-        | Some T -> Some T
-      end
-    | S.Relation, S.Relation -> Some T
-    | S.Finite_domain, S.Finite_domain -> Some T
-    | S.Floating_point, S.Floating_point -> Some T
-    | S.Rounding_mode, S.Rounding_mode -> Some T
-    | S.Seq, S.Seq -> Some T
-    | S.Re, S.Re -> Some T
-    | S.Char, S.Char -> Some T
-    | S.Unknown, S.Unknown -> Some T
-    | _, _ -> None
-  and same_datatype_kind
-    : 'a 'b . 'a S.datatype_kind -> 'b S.datatype_kind -> ('a, 'b) Type_equal.t option =
-    fun (type a b) (a : a S.datatype_kind) (b : b S.datatype_kind) : (a,b) Type_equal.t option ->
-    match a, b with
-    | Other, Other -> Some T
-    | Tuple a, Tuple b ->
-      begin match same_tuple_instance a b with
-        | None -> None
-        | Some T -> Some T
-      end
-    | _,_ -> None
-  and same_array_kind_internal
-    : 'a0 'a1 'a2 'b0 'b1 'b2 .
-        ('a0,'a1,'a2) S.lambda_instance
-      -> ('b0,'b1,'b2) S.lambda_instance
-      -> ('a2, 'b2) Type_equal.t
-      -> ('a0 * 'a1 * 'a2, 'b0 * 'b1 * 'b2) Type_equal.t option =
-      fun (type a0 a1 a2 b0 b1 b2)
-      (a : (a0,a1,a2) S.lambda_instance)
-      (b : (b0,b1,b2) S.lambda_instance)
-      (eq_res : (a2,b2) Type_equal.t)
-    ->
-      match a, b, eq_res with
-      | [], [], T -> Some (Type_equal.T : (a0 * a1 * a2, b0 * b1 * b2) Type_equal.t)
-      | _ :: _, [], _ -> None
-      | [], _ :: _, _ -> None
-      | x :: xs, y :: ys, T ->
-        match same_kind_internal x y with
-        | None -> None
-        | Some T ->
-          match same_array_kind_internal xs ys eq_res with
-          | None -> None
-          | Some T -> Some T
-  and same_tuple_instance
-    : 'a 'b . 'a S.tuple_instance -> 'b S.tuple_instance -> ('a, 'b) Type_equal.t option =
-    fun (type a b) (a : a S.tuple_instance) (b : b S.tuple_instance) : (a, b) Type_equal.t option ->
-    match a, b with
-    | [], [] -> Some T
-    | [], _ :: _ -> None
-    | _ :: _, [] -> None
-    | x :: xs, y :: ys ->
-      match same_kind_internal x y with
-      | None -> None
-      | Some T ->
-        match same_tuple_instance xs ys with
-        | None -> None
-        | Some T -> Some T
-
   let same_kind (type a b) (a : a t) (b : b t) : (a,b) Type_equal.t option =
-    same_kind_internal (sort_kind a) (sort_kind b)
+    Kind.same_kind_internal (sort_kind a) (sort_kind b)
 
+  let equal a b =
+    ZSort.equal (to_raw a) (to_raw b)
 end
 
 and Wrap : sig
@@ -765,6 +772,45 @@ and Function_declaration : Function_declaration
     let A domain = Sort.func_decl_domain t in
     let range = Sort.func_decl_range t in
     ((Obj.magic : (_,_,_) S.lambda_instance -> (_,_,_) S.lambda_instance) domain), range
+
+  let same_witness
+      (type a afinal b bfinal)
+      (a : (a, afinal) t)
+      (b : (b, bfinal) t)
+      : (a*afinal, b*bfinal) Type_equal.t option
+      =
+      let adomain =
+        Z3.FuncDecl.get_domain (Function_declaration.to_raw a)
+      in
+      let bdomain =
+        Z3.FuncDecl.get_domain (Function_declaration.to_raw b)
+      in
+      let arange =
+        Z3.FuncDecl.get_range (Function_declaration.to_raw a)
+        |> Sort.unsafe_of_raw
+      in
+      let brange =
+        Z3.FuncDecl.get_range (Function_declaration.to_raw b)
+        |> Sort.unsafe_of_raw
+      in
+      if
+        Sort.equal arange brange
+        && List.equal
+          (fun a b ->
+             Sort.equal (Sort.unsafe_of_raw a) (Sort.unsafe_of_raw b)
+          )
+          adomain bdomain
+      then Obj.magic (Some Type_equal.T)
+      else begin
+        let ka,ra = Function_declaration.sort_kind a in 
+        let kb,rb = Function_declaration.sort_kind b in 
+        match Sort.Kind.same ra rb with
+        | None -> None
+        | Some T ->
+          match Sort.Kind.same_lambda_instance ka kb T with
+          | None -> None
+          | Some T -> Some (T : (a*afinal,b*bfinal) Type_equal.t)
+      end
 
   let app
       (type inputs body)
@@ -1320,6 +1366,10 @@ module ZTuple : ZTuple
     type ('arg, 'extra) t = ('extra * Nothing.t,'arg) Function_declaration.t 
     type 'extra packed = | T : (_, 'extra) t -> 'extra packed [@@unboxed]
     let pack x = T x
+    let same_witness (type a b c) (a : (a, c) t) (b : (b,c) t) : (a, b) Type_equal.t option =
+      match Function_declaration.same_witness a b with
+      | None -> None
+      | Some T -> Some T
   end
 
   module Field_accessor_list = Typed_list.Make_simple(Field_accessor)

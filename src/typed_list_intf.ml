@@ -24,6 +24,7 @@ module type Simple_inner = sig
   include T2
   type 'extra packed
   val pack : (_,'extra) t -> 'extra packed
+  val same_witness : ('a, 'c) t -> ('b, 'c) t -> ('a, 'b) Type_equal.t option
 end
 
 module type Simple_t2 = sig
@@ -40,6 +41,8 @@ module type Simple = sig
   include Simple_t2 with module Inner := Inner
 
   val to_list : (_, 'extra) t -> int * 'extra Inner.packed list
+
+  val to_uniform_list_exn : ('a * 'next, 'extra) t -> ('a, 'extra) Inner.t list
 end
 
 module type Pack_inner = sig

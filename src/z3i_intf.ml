@@ -218,7 +218,17 @@ module type Sort = sig
     type 's t = 's S.kind [@@deriving sexp_of]
 
     type ('a,'b,'c) lambda_instance = ('a,'b,'c) S.lambda_instance [@@deriving sexp_of]
+
+    val same : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
+
+    val same_lambda_instance
+      : ('a0,'a1,'a2) S.lambda_instance
+      -> ('b0,'b1,'b2) S.lambda_instance
+      -> ('a2, 'b2) Type_equal.t
+      -> ('a0 * 'a1 * 'a2, 'b0 * 'b1 * 'b2) Type_equal.t option
   end
+
+  val equal : _ t -> _ t -> bool
 
   val same : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
   val same_kind : 'a t -> 'b t -> ('a, 'b) Type_equal.t option
@@ -367,6 +377,11 @@ module type Function_declaration = sig
   val sort_kind
     : ('a, 'body) t 
     -> ('a, _, 'body) S.lambda_instance * 'body S.kind
+
+  val same_witness
+    :  ('a, 'a_body) t
+    -> ('b, 'b_body) t
+    -> ('a * 'a_body, 'b * 'b_body) Type_equal.t option
 
   val app
     :  ('a, 'body) t
