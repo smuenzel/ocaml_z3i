@@ -55,6 +55,8 @@ module Make_lambda(Inner : Pack_inner) = struct
     | [] : Nothing.t t
     | (::) : 'arg Inner.t * 'next_args t -> ('arg * 'next_args) t
 
+  type packed = | T : _ t -> packed [@@unboxed]
+
   let rec to_list : 'inputs . 'inputs t -> int * Inner.packed list =
     fun (type inputs) (t : inputs t) ->
     match t with
@@ -63,4 +65,11 @@ module Make_lambda(Inner : Pack_inner) = struct
       let length, rest = to_list xs in
       length + 1
     , Inner.T x :: rest
+
+  let rec of_packed_list (list : Inner.packed list) =
+    match list with
+    | [] -> T []
+    | (T x) :: xs ->
+      let T xs = of_packed_list xs in
+      T (x :: xs)
 end

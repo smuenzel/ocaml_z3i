@@ -368,10 +368,14 @@ module type Function_declaration = sig
   open! Types
 
   module Lambda_list : module type of Typed_list.Make_lambda(Expr)
+  module Sort_list : module type of Typed_list.Make_lambda(Sort)
 
   include With_raw2(Function_declaration).S with type Native.native := Z3native.func_decl
       
   val context : (_,_) t -> Context.t
+
+  val domain : ('d,_) t -> 'd Sort_list.t
+  val range : (_, 'body) t -> 'body Sort.t
 
   val sort_kind
     : ('a, 'body) t 

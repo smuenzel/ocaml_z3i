@@ -771,6 +771,8 @@ and Function_declaration : Function_declaration
 = struct
   module Lambda_list = Lambda_list
 
+  module Sort_list = Typed_list.Make_lambda(Types.Sort)
+
   include Make_raw2(Types.Function_declaration)
 
   module ZFuncDecl = Z3.FuncDecl
@@ -783,6 +785,19 @@ and Function_declaration : Function_declaration
     (* CR smuenzel: no get_context *)
     ZFuncDecl.get_name (to_raw t)
     |> Symbol.context
+
+  let domain (type a) (t : (a, _) t) : a Sort_list.t =
+    let T result =
+      Z3.FuncDecl.get_domain (Function_declaration.to_raw t)
+      |> Sort.unsafe_of_raw_list
+      |> Sort.pack_list
+      |> Sort_list.of_packed_list
+    in
+    (Obj.magic : _ Sort_list.t -> _ Sort_list.t) result
+
+  let range t =
+    Z3.FuncDecl.get_range (Function_declaration.to_raw t)
+    |> Sort.unsafe_of_raw
 
   let sort_kind (type a final) (t : (a, final) t) : a S.lambda_instance * final Sort.Kind.t =
     let A domain = Sort.func_decl_domain t in

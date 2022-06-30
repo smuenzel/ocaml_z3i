@@ -57,6 +57,8 @@ module type Lambda_list_t1 = sig
   type 'inputs t =
     | [] : Nothing.t t
     | (::) : 'arg Inner.t * 'next_args t -> ('arg * 'next_args) t
+
+  type packed = | T : _ t -> packed [@@unboxed]
 end
 
 module type Lambda_list = sig
@@ -64,6 +66,7 @@ module type Lambda_list = sig
   include Lambda_list_t1 with module Inner := Inner
 
   val to_list : _ t -> int * Inner.packed list
+  val of_packed_list : Inner.packed list -> packed
 end
 
 module type Typed_list = sig
