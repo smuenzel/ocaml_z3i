@@ -597,8 +597,12 @@ module type ZArray = sig
   open Types
 
   module Lambda_list : module type of Typed_list.Make_lambda(Expr)
+  module Sort_list : module type of Typed_list.Make_lambda(Sort)
 
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
+
+  val domain : ('a, 'b) S.array Sort.t -> 'a Sort_list.t
+  val range : (_,'b) S.array Sort.t -> 'b Sort.t
 
   val select_single : ('a * Nothing.t, 'b) t -> 'a Expr.t -> 'b Expr.t
 

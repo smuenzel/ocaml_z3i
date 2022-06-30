@@ -181,32 +181,6 @@ end
     let unsafe_of_native_list = (Obj.magic : Z3native.sort list -> packed list)
   end
 
-
-  let array_domain_n t i =
-    try
-      let result =
-        Z3native.get_array_sort_domain_n
-          (Sort.context t |> Context.Native.to_native)
-          (Sort.Native.to_native t)
-          i
-        |> Native.unsafe_of_native
-      in
-      Some (T result)
-    with
-    | Z3.Error _ -> None
-
-  let rec all_array_domains acc t i =
-    match array_domain_n t i with
-    | None -> List.rev acc
-    | Some packed ->
-      all_array_domains (packed :: acc) t (i + 1)
-
-  let all_array_domains t = all_array_domains [] t 0
-
-  let range (type a b c) (t : (c, (a -> b)) S.array t) : b t =
-    Z3.Z3Array.get_range (to_raw t)
-    |> unsafe_of_raw
-
   let tuple_elements s =
     let raw = to_raw s in
     Z3.Tuple.get_field_decls raw
@@ -382,10 +356,11 @@ end
     | BV_SORT -> Obj.magic S.Bv
     | ARRAY_SORT ->
       (* CR smuenzel: too much magic *)
-      let all_array_domains = all_array_domains t in
-      let range = range ((Obj.magic : s t -> _ S.array t) t) in
+      let t = (Obj.magic : s t -> _ S.array t) t in
+      let _, domain = Sort_list.to_list (ZArray.domain t) in
+      let range = ZArray.range t in
       let all_array_domains =
-        List.map all_array_domains
+        List.map domain
           ~f:(fun (T s) ->
               S.K
                 (sort_kind ((Obj.magic : _ t -> _ t) s)))
@@ -771,7 +746,7 @@ and Function_declaration : Function_declaration
 = struct
   module Lambda_list = Lambda_list
 
-  module Sort_list = Typed_list.Make_lambda(Types.Sort)
+  module Sort_list = Sort_list
 
   include Make_raw2(Types.Function_declaration)
 
@@ -1360,8 +1335,41 @@ and ZArray : ZArray
 = struct
 
   module Lambda_list = Lambda_list
+  module Sort_list = Sort_list
 
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
+
+  let array_domain_n (s : (_,_) S.array Sort.t) i =
+    try
+      let result =
+        Z3native.get_array_sort_domain_n
+          (Sort.context s |> Context.Native.to_native)
+          (Sort.Native.to_native s)
+          i
+        |> Sort.Native.unsafe_of_native
+      in
+      Some (Sort.T result)
+    with
+    | Z3.Error _ -> None
+
+  let rec all_array_domains acc s i =
+    match array_domain_n s i with
+    | None -> List.rev acc
+    | Some packed ->
+      all_array_domains (packed :: acc) s (i + 1)
+
+  let all_array_domains (s : (_,_) S.array Sort.t) = all_array_domains [] s 0
+
+  let domain (type a) (s : (a, _) S.array Sort.t) : a Sort_list.t =
+    let T result =
+      all_array_domains s
+      |> Sort_list.of_packed_list
+    in
+    (Obj.magic : _ Sort_list.t -> _ Sort_list.t) result
+
+  let range (type b c) (s : (c, b) S.array Sort.t) : b Sort.t =
+    Z3.Z3Array.get_range (Sort.to_raw s)
+    |> Sort.unsafe_of_raw
 
   let select_single (type a b) (ar : (a * Nothing.t, b) t) (s : a Expr.t) : b Expr.t =
     Z3.Z3Array.mk_select (Expr.context ar) (Expr.to_raw ar) (Expr.to_raw s)
@@ -1383,7 +1391,10 @@ and ZArray : ZArray
 end
 
 and Lambda_list : module type of Typed_list.Make_lambda(Types.Expr)
-= Typed_list.Make_lambda(Types.Expr)
+  = Typed_list.Make_lambda(Types.Expr)
+
+and Sort_list : module type of Typed_list.Make_lambda(Types.Sort)
+  = Typed_list.Make_lambda(Types.Sort)
 
 and Symbol_sort_list
   : Typed_list.Simple
