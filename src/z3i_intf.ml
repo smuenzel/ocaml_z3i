@@ -101,50 +101,6 @@ module type Native2 = sig
   val unsafe_of_native_list : native list -> packed list
 end
 
-module With_raw(With_sort : With_sort) = struct
-  module type S = sig
-    type raw = With_sort.raw
-    type 's t = 's With_sort.t [@@deriving sexp_of]
-    type packed = With_sort.packed = T : _ t -> packed [@@unboxed]
-
-    val to_raw : _ t -> raw
-    val unsafe_of_raw : raw -> _ t
-
-    val to_raw_list : _ t list -> raw list
-    val unsafe_of_raw_list : raw list -> _ t list
-
-    val pack : _ t -> packed
-    val pack_list : _ t list -> packed list
-
-    val to_raw_unpack_list : packed list -> raw list
-
-    module Native : Native1 with type 's t := 's t and type packed := packed
-
-    include Higher_kinded_short.S with type 'a t := 'a t
-  end
-end
-
-module With_raw2(With_sort : With_sort2) = struct
-  module type S = sig
-    type raw = With_sort.raw
-    type ('a,'b) t = ('a,'b) With_sort.t [@@deriving sexp_of]
-    type packed = With_sort.packed = T : (_,_) t -> packed [@@unboxed]
-
-    val to_raw : (_, _) t -> raw
-    val unsafe_of_raw : raw -> (_,_) t
-
-    val to_raw_list : (_,_) t list -> raw list
-    val unsafe_of_raw_list : raw list -> (_,_) t list
-
-    val pack : (_,_) t -> packed
-    val pack_list : (_,_) t list -> packed list
-
-    val to_raw_unpack_list : packed list -> raw list
-
-    module Native : Native2 with type ('a, 'b) t := ('a, 'b) t and type packed := packed
-  end
-end
-
 module type Ast = sig
   open Types
 
@@ -160,7 +116,8 @@ end
 module type Expr = sig
   open Types
 
-  include With_raw(Expr).S with type Native.native := Z3native.ast
+  include module type of struct include Types.Expr end
+  include sig type 'a t [@@deriving sexp_of] end with type 'a t := 'a t
 
   val context : _ t -> Context.t
   val sort : 's t -> 's Sort.t
@@ -190,7 +147,8 @@ end
 module type Sort = sig
   open Types
 
-  include With_raw(Sort).S with type Native.native := Z3native.sort
+  include module type of struct include Types.Sort end
+  include sig type 'a t [@@deriving sexp_of] end with type 'a t := 'a t
 
   module Kind : sig
     type 's t = 's S.kind [@@deriving sexp_of]
@@ -344,7 +302,8 @@ module type Function_declaration = sig
   module Lambda_list : module type of Typed_list.Make_lambda(Expr)
   module Sort_list : module type of Typed_list.Make_lambda(Sort)
 
-  include With_raw2(Function_declaration).S with type Native.native := Z3native.func_decl
+  include module type of struct include Types.Function_declaration end
+  include sig type (_,_) t [@@deriving sexp_of] end with type ('a,'b) t := ('a,'b) t
       
   val context : (_,_) t -> Context.t
 
@@ -552,7 +511,8 @@ end
 module type Pattern = sig
   open Types
 
-  include With_raw(Pattern).S with type Native.native := Z3native.pattern
+  include module type of struct include Types.Pattern end
+  include sig type 'a t [@@deriving sexp_of] end with type 'a t := 'a t
 
   val create : 's Expr.t list -> 's t
 end

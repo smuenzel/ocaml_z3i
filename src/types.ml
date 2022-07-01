@@ -1,31 +1,148 @@
 module type With_sort = sig
+  type native
   type raw
   type 's t = private raw
   type packed = T : _ t -> packed [@@unboxed]
 end
 
 module type With_sort2 = sig
+  type native
   type raw
   type (_,_) t = private raw
   type packed = T : (_,_) t -> packed [@@unboxed]
 end
 
-(*
-module rec Types : Types
-  with type Context.t = Z3.context
-   and type Ast.t = Z3.AST.ast
-   and type Sort.raw = Z3.Sort.sort
-   and type Expr.raw = Z3.Expr.expr
-   and type Symbol.t = Z3.Symbol.symbol
-   and type Model.t = Z3.Model.model
-   and type Function_declaration.raw = Z3.FuncDecl.func_decl
-   and type Function_interpretation.t = Z3.Model.FuncInterp.func_interp
-   and type Solver.t = Z3.Solver.solver
-   and type Optimize.t = Z3.Optimize.optimize
-   and type Quantifier.raw = Z3.Quantifier.quantifier
-   and type Pattern.raw = Z3.Quantifier.Pattern.pattern
-  = Types
-   *)
+module type Native = sig
+  type t
+  type native
+  val to_native : t -> native
+  val to_native_list : t list -> native list
+  val unsafe_of_native : native -> t
+end
+
+module type Native1 = sig
+  type _ t
+  type packed
+  type native
+  val to_native : _ t -> native
+  val unsafe_of_native : native -> _ t
+  val to_native_list : packed list -> native list
+  val unsafe_of_native_list : native list -> packed list
+end
+
+module type Native2 = sig
+  type (_,_) t
+  type packed
+  type native
+  val to_native : (_,_) t -> native
+  val unsafe_of_native : native -> (_,_) t
+  val to_native_list : packed list -> native list
+  val unsafe_of_native_list : native list -> packed list
+end
+
+module type With_raw = sig
+  module With_sort : With_sort
+  type raw = With_sort.raw
+  type 's t = 's With_sort.t
+  type packed = With_sort.packed = T : _ t -> packed [@@unboxed]
+
+  val to_raw : _ t -> raw
+  val unsafe_of_raw : raw -> _ t
+
+  val to_raw_list : _ t list -> raw list
+  val unsafe_of_raw_list : raw list -> _ t list
+
+  val pack : _ t -> packed
+  val pack_list : _ t list -> packed list
+
+  val to_raw_unpack_list : packed list -> raw list
+
+  module Native : Native1 with type 's t := 's t
+                           and type packed := packed
+                           and type native = With_sort.native
+
+  include Higher_kinded_short.S with type 'a t := 'a t
+end
+
+module Make_raw(With_sort : With_sort) : With_raw with module With_sort := With_sort
+= struct
+  type raw = With_sort.raw
+  type 's t = 's With_sort.t
+  type packed = With_sort.packed = T : _ t -> packed [@@unboxed]
+
+  external to_raw : _ t -> raw = "%identity"
+  external unsafe_of_raw : raw -> _ t = "%identity"
+
+  external to_raw_list : _ t list -> raw list = "%identity"
+  external unsafe_of_raw_list : raw list -> _ t list = "%identity"
+
+  external pack : _ t -> packed = "%identity"
+  external pack_list : _ t list -> packed list = "%identity"
+
+  external to_raw_unpack_list : packed list -> raw list = "%identity"
+
+  include Higher_kinded_short.Make1(struct
+      type nonrec 'a t = 'a t
+    end)
+
+  module Native = struct
+    type native = With_sort.native
+
+    external to_native : _ t -> native = "%identity"
+    external unsafe_of_native : native -> _ t = "%identity"
+    external to_native_list : packed list -> native list = "%identity"
+    external unsafe_of_native_list : native list -> packed list = "%identity"
+  end
+end
+
+module type With_raw2 = sig
+  module With_sort : With_sort2
+  type raw = With_sort.raw
+  type ('a,'b) t = ('a,'b) With_sort.t
+  type packed = With_sort.packed = T : (_,_) t -> packed [@@unboxed]
+
+  val to_raw : (_, _) t -> raw
+  val unsafe_of_raw : raw -> (_,_) t
+
+  val to_raw_list : (_,_) t list -> raw list
+  val unsafe_of_raw_list : raw list -> (_,_) t list
+
+  val pack : (_,_) t -> packed
+  val pack_list : (_,_) t list -> packed list
+
+  val to_raw_unpack_list : packed list -> raw list
+
+  module Native : Native2 with type ('a, 'b) t := ('a, 'b) t
+                           and type packed := packed
+                           and type native = With_sort.native
+end
+
+module Make_raw2(With_sort : With_sort2) : With_raw2 with module With_sort := With_sort
+= struct
+  type raw = With_sort.raw
+  type ('a,'b) t = ('a,'b) With_sort.t
+  type packed = With_sort.packed = T : (_, _) t -> packed [@@unboxed]
+
+  external to_raw : (_, _) t -> raw = "%identity"
+  external unsafe_of_raw : raw -> (_, _) t = "%identity"
+
+  external to_raw_list : (_, _) t list -> raw list = "%identity"
+  external unsafe_of_raw_list : raw list -> (_,_) t list = "%identity"
+
+  external pack : (_,_) t -> packed = "%identity"
+  external pack_list : (_,_) t list -> packed list = "%identity"
+
+  external to_raw_unpack_list : packed list -> raw list = "%identity"
+
+  module Native = struct
+    type native = With_sort.native
+
+    external to_native : _ t -> native = "%identity"
+    external unsafe_of_native : native -> _ t = "%identity"
+    external to_native_list : packed list -> native list = "%identity"
+    external unsafe_of_native_list : native list -> packed list = "%identity"
+  end
+end
 
 module Ast = struct
   type t = Z3.AST.ast
@@ -36,15 +153,15 @@ module Context = struct
 end
 
 module Expr = struct
-  module rec T : With_sort with type raw = Z3.Expr.expr = T
+  module rec T : With_sort with type raw = Z3.Expr.expr and type native = Z3native.ast = T
   include T
-  include Higher_kinded_short.Make1(T)
+  include Make_raw(T)
 end
 
 module Sort = struct
-  module rec T : With_sort with type raw = Z3.Sort.sort = T
+  module rec T : With_sort with type raw = Z3.Sort.sort and type native = Z3native.sort = T
   include T
-  include Higher_kinded_short.Make1(T)
+  include Make_raw(T)
 end
 
 module Symbol = struct
@@ -56,9 +173,11 @@ module Model = struct
 end
 
 module Function_declaration = struct
-  module rec T : With_sort2 with type raw = Z3.FuncDecl.func_decl = T
+  module rec T : With_sort2 with type raw = Z3.FuncDecl.func_decl
+                             and type native = Z3native.func_decl
+    = T
   include T
-  include Higher_kinded_short.Make2(T)
+  include Make_raw2(T)
 end
 
 module Function_interpretation = struct
@@ -81,13 +200,17 @@ module Solver_result = struct
 end
 
 module Quantifier = struct
-  module rec T : With_sort with type raw = Z3.Quantifier.quantifier = T
+  module rec T : With_sort with type raw = Z3.Quantifier.quantifier
+                            and type native = Z3native.ast
+    = T
   include T
-  include Higher_kinded_short.Make1(T)
+  include Make_raw(T)
 end
 
 module Pattern = struct
-  module rec T : With_sort with type raw = Z3.Quantifier.Pattern.pattern = T
+  module rec T : With_sort with type raw = Z3.Quantifier.Pattern.pattern
+                            and type native = Z3native.pattern
+    = T
   include T
-  include Higher_kinded_short.Make1(T)
+  include Make_raw(T)
 end

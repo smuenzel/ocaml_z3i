@@ -4,44 +4,6 @@ open Z3i_intf
 
 module S = S
 
-module Make_raw(With_sort : With_sort) = struct
-  type raw = With_sort.raw
-  type 's t = 's With_sort.t
-  type packed = With_sort.packed = T : _ t -> packed [@@unboxed]
-
-  let to_raw : _ t -> raw = Obj.magic
-  let unsafe_of_raw : raw -> _ t = Obj.magic
-
-  let to_raw_list : _ t list -> raw list = Obj.magic
-  let unsafe_of_raw_list : raw list -> _ t list = Obj.magic
-
-  let pack : _ t -> packed = Obj.magic
-  let pack_list : _ t list -> packed list = Obj.magic
-
-  let to_raw_unpack_list : packed list -> raw list = Obj.magic
-
-  include Higher_kinded_short.Make1(struct
-      type nonrec 'a t = 'a t
-    end)
-end
-
-module Make_raw2(With_sort : With_sort2) = struct
-  type raw = With_sort.raw
-  type ('a,'b) t = ('a,'b) With_sort.t
-  type packed = With_sort.packed = T : (_, _) t -> packed [@@unboxed]
-
-  let to_raw : (_, _) t -> raw = Obj.magic
-  let unsafe_of_raw : raw -> (_, _) t = Obj.magic
-
-  let to_raw_list : (_, _) t list -> raw list = Obj.magic
-  let unsafe_of_raw_list : raw list -> (_,_) t list = Obj.magic
-
-  let pack : (_,_) t -> packed = Obj.magic
-  let pack_list : (_,_) t list -> packed list = Obj.magic
-
-  let to_raw_unpack_list : packed list -> raw list = Obj.magic
-end
-
 module rec Context : Context 
 = struct
   type t = Types.Context.t
@@ -104,16 +66,9 @@ and Expr : Expr
 
   module ZExpr = Z3.Expr
 
-  include Make_raw(Types.Expr)
+  include Types.Expr
 
   let sexp_of_t _ t = [%sexp_of: string] (Expr.to_string t)
-
-  module Native = struct
-    let to_native = (Obj.magic : _ t -> Z3native.ast)
-    let unsafe_of_native = (Obj.magic : Z3native.ast -> _ t)
-    let to_native_list = (Obj.magic : packed list -> Z3native.ast list)
-    let unsafe_of_native_list = (Obj.magic : Z3native.ast list -> packed list)
-  end
 
   let context t =
     Z3native.context_of_ast (Native.to_native t)
@@ -169,17 +124,10 @@ end
 = struct
   module ZSort = Z3.Sort
 
-  include Make_raw(Types.Sort)
+  include Types.Sort
 
   let sexp_of_t _ t =
     [%sexp_of: string] (ZSort.to_string (to_raw t))
-
-  module Native = struct
-    let to_native = (Obj.magic : _ t -> Z3native.sort)
-    let unsafe_of_native = (Obj.magic : Z3native.sort -> _ t)
-    let to_native_list = (Obj.magic : packed list -> Z3native.sort list)
-    let unsafe_of_native_list = (Obj.magic : Z3native.sort list -> packed list)
-  end
 
   let tuple_elements s =
     let raw = to_raw s in
@@ -745,7 +693,7 @@ and Function_declaration : Function_declaration
 
   module Sort_list = Sort_list
 
-  include Make_raw2(Types.Function_declaration)
+  include Types.Function_declaration
 
   module ZFuncDecl = Z3.FuncDecl
 
@@ -828,13 +776,6 @@ and Function_declaration : Function_declaration
       length
       (Expr.Native.to_native_list as_list)
     |> Expr.Native.unsafe_of_native
-
-  module Native = struct
-    let to_native = (Obj.magic : _ t -> Z3native.func_decl)
-    let unsafe_of_native = (Obj.magic : Z3native.func_decl -> _ t)
-    let to_native_list = (Obj.magic : packed list -> Z3native.func_decl list)
-    let unsafe_of_native_list = (Obj.magic : Z3native.func_decl list -> packed list)
-  end
 end
 
 and Function_interpretation : Function_interpretation
@@ -1126,7 +1067,7 @@ and Quantifier : Quantifier
   module Lambda_list = Lambda_list
   module ZQuantifier = Z3.Quantifier
 
-  include Make_raw(Types.Quantifier)
+  include Types.Quantifier
 
   let of_expr (type s) (e : s Expr.t) : s t =
     ZQuantifier.quantifier_of_expr (Expr.to_raw e)
@@ -1300,7 +1241,7 @@ end
 
 and Pattern : Pattern
 = struct
-  include Make_raw(Types.Pattern)
+  include Types.Pattern
 
   let sexp_of_t _ t =
     [%sexp_of:string] (Z3.Quantifier.Pattern.to_string (to_raw t))
@@ -1310,13 +1251,6 @@ and Pattern : Pattern
       (Expr.context (List.hd_exn exprs))
       (Expr.to_raw_list exprs)
     |> unsafe_of_raw
-
-  module Native = struct
-    let to_native = (Obj.magic : _ t -> Z3native.pattern)
-    let unsafe_of_native = (Obj.magic : Z3native.pattern -> _ t)
-    let to_native_list = (Obj.magic : packed list -> Z3native.pattern list)
-    let unsafe_of_native_list = (Obj.magic : Z3native.pattern list -> packed list)
-  end
 end
 
 and ZArray : ZArray
