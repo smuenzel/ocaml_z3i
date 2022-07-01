@@ -66,6 +66,7 @@ module type Lambda_list = sig
   module Inner : Pack_inner
   include Lambda_list_t1 with module Inner := Inner
 
+  val to_list_mapi : _ t -> f:(int -> Inner.packed -> 'a) -> int * 'a list
   val to_list_map : _ t -> f:(Inner.packed -> 'a) -> int * 'a list
   val to_list : _ t -> int * Inner.packed list
   val of_packed_list : Inner.packed list -> packed

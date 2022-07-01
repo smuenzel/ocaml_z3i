@@ -57,14 +57,18 @@ module Make_lambda(Inner : Pack_inner) = struct
 
   type packed = | T : _ t -> packed [@@unboxed]
 
-  let rec to_list_map : 'inputs . 'inputs t -> f:(Inner.packed -> 'b) -> int * 'b list =
-    fun (type inputs) (t : inputs t) ~f ->
+  let rec to_list_mapi : 'inputs . 'inputs t -> int -> f:(int -> Inner.packed -> 'b) -> int * 'b list =
+    fun (type inputs) (t : inputs t) i ~f ->
     match t with
     | [] -> 0, ([] : _ list)
     | x :: xs ->
-      let length, rest = to_list_map xs ~f in
+      let length, rest = to_list_mapi xs (i + 1) ~f in
       length + 1
-    , f (Inner.T x) :: rest
+    , f i (Inner.T x) :: rest
+
+  let to_list_mapi t ~f = to_list_mapi t 0 ~f
+
+  let to_list_map t ~f = to_list_mapi t ~f:(fun _ p -> f p)
 
   let to_list t = to_list_map t ~f:Fn.id
 
