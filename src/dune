@@ -1,7 +1,7 @@
 (library
   (name z3i)
   (public_name z3i)
-  (libraries core z3)
+  (libraries core z3 higher_kinded)
   (inline_tests)
   (preprocess (pps ppx_expect ppx_jane))
   )

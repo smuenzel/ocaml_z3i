@@ -48,6 +48,44 @@ module Make_simple(Inner : Simple_inner) = struct
         inner :: rest
 end
 
+module Lambda_higher = struct
+  include Lambda_higher_types
+
+  let [@tail_mod_cons] rec map
+    : 'inner1 'inner2 'inputs .
+      ('inner1, 'inputs) t
+      -> ('inner1, 'inner2) f_map
+      -> ('inner2, 'inputs) t
+    =
+    fun (type inner1 inner2 inputs)
+      (t : (inner1, inputs) t)
+      ({ f } : (inner1, inner2) f_map)
+      : (inner2, inputs) t
+      ->
+        match t with
+        | [] -> []
+        | x :: xs ->
+          let x = f x in
+          x :: map xs { f }
+
+  let [@tail_mod_cons] rec to_list_map
+    : 'inner1 'out 'inputs .
+      ('inner1, 'inputs) t
+      -> ('inner1, 'out) f_to_list
+      -> 'out list
+    =
+    fun (type inner1 out inputs)
+      (t : (inner1, inputs) t)
+      ({ f } : (inner1, out) f_to_list)
+      : out list
+      ->
+        match t with
+        | [] -> []
+        | x :: xs ->
+          let x = f x in
+          x :: to_list_map xs { f }
+end
+
 module Make_lambda(Inner : Pack_inner) = struct
   module Inner = Inner
 

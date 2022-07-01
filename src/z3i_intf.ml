@@ -138,6 +138,8 @@ module With_raw(With_sort : With_sort) = struct
     val to_raw_unpack_list : packed list -> raw list
 
     module Native : Native1 with type 's t := 's t and type packed := packed
+
+    include Higher_kinded_short.S with type 'a t := 'a t
   end
 end
 

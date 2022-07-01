@@ -19,6 +19,10 @@ module Make_raw(With_sort : With_sort) = struct
   let pack_list : _ t list -> packed list = Obj.magic
 
   let to_raw_unpack_list : packed list -> raw list = Obj.magic
+
+  include Higher_kinded_short.Make1(struct
+      type nonrec 'a t = 'a t
+    end)
 end
 
 module Make_raw2(With_sort : With_sort2) = struct
