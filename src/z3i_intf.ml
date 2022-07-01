@@ -1,6 +1,8 @@
 open Core
+open! Typed_list
 
 module type With_sort = sig
+  type higher_kinded
   type raw
   type 's t = private raw
   type packed = T : _ t -> packed [@@unboxed]
@@ -10,27 +12,6 @@ module type With_sort2 = sig
   type raw
   type (_,_) t = private raw
   type packed = T : (_,_) t -> packed [@@unboxed]
-end
-
-module type Types = sig
-  module Ast : T
-  module Context : T
-  module Expr : With_sort
-  module Sort : With_sort
-  module Symbol : T
-  module Model : T
-  module Function_declaration : With_sort2
-  module Function_interpretation : T
-  module Optimize : T
-  module Solver : T
-  module Solver_result : sig
-    type 'a t =
-      | Unsatisfiable
-      | Unknown of string
-      | Satisfiable of 'a
-  end
-  module Quantifier : With_sort
-  module Pattern : With_sort
 end
 
 module S = struct
@@ -165,7 +146,6 @@ module With_raw2(With_sort : With_sort2) = struct
 end
 
 module type Ast = sig
-  module Types : Types
   open Types
 
   type t = Ast.t
@@ -178,7 +158,6 @@ module type Ast = sig
 end
 
 module type Expr = sig
-  module Types : Types
   open Types
 
   include With_raw(Expr).S with type Native.native := Z3native.ast
@@ -201,8 +180,6 @@ module type Expr = sig
 end
 
 module type Context = sig
-  module Types : Types
-
   type t = Types.Context.t
 
   val create : ?model:bool -> ?proof:bool -> unit -> t
@@ -211,7 +188,6 @@ module type Context = sig
 end
 
 module type Sort = sig
-  module Types : Types
   open Types
 
   include With_raw(Sort).S with type Native.native := Z3native.sort
@@ -240,7 +216,6 @@ module type Sort = sig
 end
 
 module type Ordering = sig
-  module Types : Types
   open Types
   type s
   val (>) : s Expr.t -> s Expr.t -> S.bool Expr.t
@@ -250,7 +225,6 @@ module type Ordering = sig
 end
 
 module type Bitvector = sig
-  module Types : Types
   open Types
 
   type t = S.bv Expr.t  
@@ -310,11 +284,11 @@ module type Bitvector = sig
   val parity : t -> t
 
   module Signed : sig
-    include Ordering with type s := S.bv and module Types := Types
+    include Ordering with type s := S.bv
   end
 
   module Unsigned : sig
-    include Ordering with type s := S.bv and module Types := Types
+    include Ordering with type s := S.bv
   end
 
   module Set : sig
@@ -349,7 +323,6 @@ module type Bitvector = sig
 end
 
 module type Model = sig
-  module Types : Types
   open Types
 
   type t = Types.Model.t [@@deriving sexp_of]
@@ -366,7 +339,6 @@ module type Model = sig
 end
 
 module type Function_declaration = sig
-  module Types : Types
   open! Types
 
   module Lambda_list : module type of Typed_list.Make_lambda(Expr)
@@ -395,14 +367,12 @@ module type Function_declaration = sig
 end
 
 module type Function_interpretation = sig
-  module Types : Types
   open! Types
 
   type t = Types.Function_interpretation.t [@@deriving sexp_of]
 end
 
 module type Solver_result = sig
-  module Types : Types
 
   type 'a t = 'a Types.Solver_result.t =
     | Unsatisfiable
@@ -415,7 +385,6 @@ module type Solver_result = sig
 end
 
 module type Generic_solver = sig
-  module Types : Types
   open Types
 
   type t
@@ -440,22 +409,18 @@ module type Generic_solver = sig
 end
 
 module type Solver = sig
-  module Types : Types
 
   include Generic_solver
     with type t = Types.Solver.t
      and type native := Z3native.solver
-     and module Types := Types
 end
 
 module type Optimize = sig
-  module Types : Types
   open Types
 
   include Generic_solver
     with type t = Types.Optimize.t
      and type native := Z3native.optimize
-     and module Types := Types
 
   module Goal : sig
     type 's t
@@ -469,7 +434,6 @@ module type Optimize = sig
 end
 
 module type Symbol = sig
-  module Types : Types
   open Types
 
   type t = Symbol.t
@@ -483,7 +447,6 @@ module type Symbol = sig
 end
 
 module type Boolean_ops = sig
-  module Types : Types
   open Types
   type 'a wrap
   type t = S.bool Expr.t
@@ -507,15 +470,14 @@ module type Boolean_ops = sig
 end
 
 module type Boolean = sig
-  module Types : Types
   open Types
 
   val create_sort : Context.t -> S.bool Sort.t
 
   module With_context :
-    Boolean_ops with type 'a wrap := Context.t -> 'a and module Types := Types
+    Boolean_ops with type 'a wrap := Context.t -> 'a
 
-  include Boolean_ops with type 'a wrap := 'a and module Types := Types
+  include Boolean_ops with type 'a wrap := 'a
 
   val distinct : 's Expr.t list -> t
 
@@ -533,7 +495,6 @@ module type Boolean = sig
 end
 
 module type Quantifier = sig
-  module Types : Types
   open Types
 
   module Lambda_list : module type of Typed_list.Make_lambda(Expr)
@@ -569,7 +530,10 @@ module type Quantifier = sig
   val exists_const : 's create_quantifer_const
 
   val lambda_const
-    :  'a Lambda_list.t
+    : 'a Lambda_list.t
+      (*
+    :  (Expr.higher_kinded, 'a) Lambda_higher.t
+         *)
     -> body:'body Expr.t
     -> ('a, 'body) S.array t
 
@@ -586,7 +550,6 @@ module type Quantifier = sig
 end
 
 module type Pattern = sig
-  module Types : Types
   open Types
 
   include With_raw(Pattern).S with type Native.native := Z3native.pattern
@@ -595,7 +558,6 @@ module type Pattern = sig
 end
 
 module type ZArray = sig
-  module Types : Types
   open Types
 
   module Lambda_list : module type of Typed_list.Make_lambda(Expr)
@@ -612,7 +574,6 @@ module type ZArray = sig
 end
 
 module type ZTuple = sig
-  module Types : Types
   open Types
 
   module Symbol_sort_list
@@ -638,58 +599,42 @@ module type ZTuple = sig
          )
 end
 
-module rec Types : Types
-  with type Context.t = Z3.context
-   and type Ast.t = Z3.AST.ast
-   and type Sort.raw = Z3.Sort.sort
-   and type Expr.raw = Z3.Expr.expr
-   and type Symbol.t = Z3.Symbol.symbol
-   and type Model.t = Z3.Model.model
-   and type Function_declaration.raw = Z3.FuncDecl.func_decl
-   and type Function_interpretation.t = Z3.Model.FuncInterp.func_interp
-   and type Solver.t = Z3.Solver.solver
-   and type Optimize.t = Z3.Optimize.optimize
-   and type Quantifier.raw = Z3.Quantifier.quantifier
-   and type Pattern.raw = Z3.Quantifier.Pattern.pattern
-  = Types
-
 module type Z3i_internal = sig
-  module Ast : Ast with module Types := Types
-  module Context : Context with module Types := Types
-  module Expr : Expr with module Types := Types
+  module Ast : Ast 
+  module Context : Context 
+  module Expr : Expr 
 
   module Lambda_list : module type of Typed_list.Make_lambda(Types.Expr)
 
-  module Sort : Sort with module Types := Types
-  module Bitvector : Bitvector with module Types := Types
-  module Model : Model with module Types := Types
-  module Function_interpretation : Function_interpretation with module Types := Types
-  module Function_declaration : Function_declaration with module Types := Types
+  module Sort : Sort 
+  module Bitvector : Bitvector 
+  module Model : Model 
+  module Function_interpretation : Function_interpretation 
+  module Function_declaration : Function_declaration 
   module Solver : Solver
-    with module Types := Types
+
   module Solver_result : Solver_result
-    with module Types := Types
-     and type 'a t = 'a Types.Solver_result.t
-  module Optimize : Optimize with module Types := Types
-  module Symbol : Symbol with module Types := Types
-  module Boolean : Boolean with module Types := Types
-  module Quantifier : Quantifier with module Types := Types
-  module Pattern : Pattern with module Types := Types
-  module ZArray : ZArray with module Types := Types
+    with type 'a t = 'a Types.Solver_result.t
+
+  module Optimize : Optimize 
+  module Symbol : Symbol 
+  module Boolean : Boolean 
+  module Quantifier : Quantifier 
+  module Pattern : Pattern 
+  module ZArray : ZArray 
 
   module Symbol_sort_list
     : Typed_list.Simple_t2
       with type ('arg,_) Inner.t = Symbol.t * 'arg Sort.t
 
   module ZTuple
-    : ZTuple with module Types := Types
-              and module Symbol_sort_list := Symbol_sort_list
+    : ZTuple 
+      with module Symbol_sort_list := Symbol_sort_list
 
   module S = S
 end
 
 module type Mux = sig
-  module Types : Types
   open Types
 
   type t =
@@ -712,7 +657,6 @@ module type Mux = sig
 end
 
 module type Symbol_builder = sig
-  module Types : Types
   open Types
 
   type t
@@ -726,7 +670,7 @@ end
 module type Z3i = sig
   include Z3i_internal
 
-  module Mux : Mux with module Types := Types
-  module Symbol_builder : Symbol_builder with module Types := Types
+  module Mux : Mux 
+  module Symbol_builder : Symbol_builder 
 
 end

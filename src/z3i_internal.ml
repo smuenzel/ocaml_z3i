@@ -43,7 +43,6 @@ module Make_raw2(With_sort : With_sort2) = struct
 end
 
 module rec Context : Context 
-  with module Types := Types
 = struct
   type t = Types.Context.t
 
@@ -79,7 +78,6 @@ module rec Context : Context
 end
 
 and Ast : Ast
-  with module Types := Types
 = struct
   module ZAst = Z3.AST
 
@@ -102,7 +100,6 @@ and Ast : Ast
 end
 
 and Expr : Expr
-  with module Types := Types
 = struct
 
   module ZExpr = Z3.Expr
@@ -165,7 +162,6 @@ end
 
 and Sort : sig
   include Sort
-    with module Types := Types
 
   val func_decl_domain : (_,_) Function_declaration.t -> S.packed_lambda_instance
   val func_decl_range : (_,'range) Function_declaration.t -> 'range Kind.t
@@ -487,7 +483,6 @@ end =  struct
 end
 
 and Bitvector : Bitvector
-  with module Types := Types
 = struct
   module ZBitvector = Z3.BitVector
 
@@ -713,7 +708,6 @@ and Bitvector : Bitvector
 end
 
 and Model : Model
-  with module Types := Types
 = struct
   type t = Types.Model.t
 
@@ -746,7 +740,6 @@ and Model : Model
 end
 
 and Function_declaration : Function_declaration
-  with module Types := Types
 = struct
   module Lambda_list = Lambda_list
 
@@ -845,7 +838,6 @@ and Function_declaration : Function_declaration
 end
 
 and Function_interpretation : Function_interpretation
-  with module Types := Types
 = struct
   type t = Types.Function_interpretation.t
 
@@ -857,8 +849,7 @@ and Function_interpretation : Function_interpretation
 end
 
 and Solver_result : Solver_result
-  with module Types := Types
-   and type 'a t = 'a Types.Solver_result.t
+   with type 'a t = 'a Types.Solver_result.t
 = struct
 
   type 'a t = 'a Types.Solver_result.t =
@@ -881,7 +872,6 @@ and Solver_result : Solver_result
 end
 
 and Solver : Solver
-  with module Types := Types
 = struct
   type t = Types.Solver.t
 
@@ -926,7 +916,6 @@ and Solver : Solver
 end
 
 and Optimize : Optimize
-  with module Types := Types
 = struct
   type t = Types.Optimize.t
 
@@ -1012,7 +1001,6 @@ and Optimize : Optimize
 end
 
 and Symbol : Symbol
-  with module Types := Types
 = struct
   type t = Types.Symbol.t
 
@@ -1032,7 +1020,6 @@ and Symbol : Symbol
 end
 
 and Boolean : Boolean
-  with module Types := Types
 = struct
 
   module ZBoolean = Z3.Boolean
@@ -1134,7 +1121,6 @@ and Boolean : Boolean
 end
 
 and Quantifier : Quantifier
-  with module Types := Types
 = struct
 
   module Lambda_list = Lambda_list
@@ -1313,7 +1299,6 @@ and Quantifier : Quantifier
 end
 
 and Pattern : Pattern
-  with module Types := Types
 = struct
   include Make_raw(Types.Pattern)
 
@@ -1335,7 +1320,6 @@ and Pattern : Pattern
 end
 
 and ZArray : ZArray
-  with module Types := Types
 = struct
 
   module Lambda_list = Lambda_list
@@ -1413,8 +1397,7 @@ and Symbol_sort_list
 end
 
 module ZTuple : ZTuple
-  with module Types := Types
-   and module Symbol_sort_list := Symbol_sort_list
+   with module Symbol_sort_list := Symbol_sort_list
 = struct
 
   module Symbol_sort_list = Symbol_sort_list
