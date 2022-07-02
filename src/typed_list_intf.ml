@@ -94,15 +94,30 @@ module type Lambda_higher = sig
   include module type of struct include Lambda_higher_types end
 
   val map
-    :  ('inner1, 'inputs) t
-    -> ('inner1, 'inner2) f_map
+    :  ('inner1, 'inner2) f_map
+    -> ('inner1, 'inputs) t
     -> ('inner2, 'inputs) t
 
   val to_list_map
-    :  ('inner1, 'inputs) t
-    -> ('inner1, 'out) f_to_list
+    :  ('inner1, 'out) f_to_list
+    -> ('inner1, 'inputs) t
     -> 'out list
 end
+
+module type Lambda_lower = sig
+  module Lambda_higher : Lambda_higher
+  module Inner : Higher_kinded.S
+
+  type 'inputs t =
+    | [] : Nothing.t t
+    | (::) : 'arg Inner.t * 'next_args t -> ('arg * 'next_args) t
+
+  type packed = | L : _ t -> packed [@@unboxed]
+
+  val higher : 'inputs t -> (Inner.higher_kinded, 'inputs) Lambda_higher.t
+  val lower : (Inner.higher_kinded, 'inputs) Lambda_higher.t -> 'inputs t
+end
+
 
 module type Typed_list = sig
   module type Simple0_inner = Simple0_inner
@@ -121,4 +136,9 @@ module type Typed_list = sig
   module Make_lambda(Inner : Pack_inner) : Lambda_list with module Inner = Inner
 
   module Lambda_higher : Lambda_higher
+  module type Lambda_lower = Lambda_lower
+  module Make_lambda_lower(Inner : Higher_kinded.S)
+    : Lambda_lower with module Inner = Inner
+                    and module Lambda_higher := Lambda_higher
+
 end

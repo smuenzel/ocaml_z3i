@@ -57,11 +57,22 @@ module type With_raw = sig
 
   val to_raw_unpack_list : packed list -> raw list
 
-  module Native : Native1 with type 's t := 's t
-                           and type packed := packed
-                           and type native = With_sort.native
+  module Native
+    : Native1 with type 's t := 's t
+               and type packed := packed
+               and type native = With_sort.native
 
-  include Higher_kinded_short.S with type 'a t := 'a t
+  module Higher : Higher_kinded_short.S with type 'a t := 'a t
+  include module type of struct include Higher end
+
+  module List : sig
+    include Typed_list.Lambda_lower
+      with module Lambda_higher := Typed_list.Lambda_higher
+       and type 'a Inner.t := 'a t
+       and module Inner := Higher
+
+    val of_packed_list : With_sort.packed list -> packed
+  end
 end
 
 module Make_raw(With_sort : With_sort) : With_raw with module With_sort := With_sort
@@ -81,9 +92,24 @@ module Make_raw(With_sort : With_sort) : With_raw with module With_sort := With_
 
   external to_raw_unpack_list : packed list -> raw list = "%identity"
 
-  include Higher_kinded_short.Make1(struct
+  module Higher = Higher_kinded_short.Make1(struct
       type nonrec 'a t = 'a t
     end)
+  include Higher
+
+  module List = struct
+    include Typed_list.Make_lambda_lower(struct
+      type nonrec 'a t = 'a t
+      include Higher
+    end)
+
+    let rec of_packed_list (list : With_sort.packed list) =
+      match list with
+      | [] -> L []
+      | (T x) :: xs ->
+        let L xs = of_packed_list xs in
+        L (x :: xs)
+  end
 
   module Native = struct
     type native = With_sort.native
@@ -173,8 +199,9 @@ module Model = struct
 end
 
 module Function_declaration = struct
-  module rec T : With_sort2 with type raw = Z3.FuncDecl.func_decl
-                             and type native = Z3native.func_decl
+  module rec T : With_sort2
+    with type raw = Z3.FuncDecl.func_decl
+     and type native = Z3native.func_decl
     = T
   include T
   include Make_raw2(T)

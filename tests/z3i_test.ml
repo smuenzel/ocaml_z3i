@@ -251,9 +251,9 @@ let%expect_test "lambda" =
     let cs11 = Expr.const s11 sort in
     let cs12 = Expr.const s12 sort in
     Quantifier.lambda_const
-      [ cs11
-      ; cs12
-      ]
+        [ cs11
+        ; cs12
+        ]
       ~body:
         (Bitvector.add
            (Expr.const s11 sort)

@@ -1,3 +1,4 @@
+open! Core
 
 module type S = sig
   include Higher_kinded.S
@@ -6,7 +7,7 @@ module type S = sig
   val (!<) : ('a -> higher_kinded) Higher_kinded.t -> 'a t
 end
 
-module Make1(T : Core.T1) = struct
+module Make1(T : Core.T1) : S with type 'a t := 'a T.t = struct
   include Higher_kinded.Make(T)
 
   let (!>) = inject

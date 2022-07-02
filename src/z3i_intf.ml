@@ -299,15 +299,12 @@ end
 module type Function_declaration = sig
   open! Types
 
-  module Lambda_list : module type of Typed_list.Make_lambda(Expr)
-  module Sort_list : module type of Typed_list.Make_lambda(Sort)
-
   include module type of struct include Types.Function_declaration end
   include sig type (_,_) t [@@deriving sexp_of] end with type ('a,'b) t := ('a,'b) t
       
   val context : (_,_) t -> Context.t
 
-  val domain : ('d,_) t -> 'd Sort_list.t
+  val domain : ('d,_) t -> 'd Sort.List.t
   val range : (_, 'body) t -> 'body Sort.t
 
   val sort_kind
@@ -321,7 +318,7 @@ module type Function_declaration = sig
 
   val app
     :  ('a, 'body) t
-    -> 'a Lambda_list.t
+    -> 'a Expr.List.t
     -> 'body Expr.t
 end
 
@@ -456,8 +453,6 @@ end
 module type Quantifier = sig
   open Types
 
-  module Lambda_list : module type of Typed_list.Make_lambda(Expr)
-
   type 's t = 's Quantifier.t
 
   val to_expr : 's t -> 's Expr.t
@@ -489,10 +484,7 @@ module type Quantifier = sig
   val exists_const : 's create_quantifer_const
 
   val lambda_const
-    : 'a Lambda_list.t
-      (*
-    :  (Expr.higher_kinded, 'a) Lambda_higher.t
-         *)
+    :  'a Expr.List.t
     -> body:'body Expr.t
     -> ('a, 'body) S.array t
 
@@ -520,17 +512,14 @@ end
 module type ZArray = sig
   open Types
 
-  module Lambda_list : module type of Typed_list.Make_lambda(Expr)
-  module Sort_list : module type of Typed_list.Make_lambda(Sort)
-
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
-  val domain : ('a, 'b) S.array Sort.t -> 'a Sort_list.t
+  val domain : ('a, 'b) S.array Sort.t -> 'a Sort.List.t
   val range : (_,'b) S.array Sort.t -> 'b Sort.t
 
   val select_single : ('a * Nothing.t, 'b) t -> 'a Expr.t -> 'b Expr.t
 
-  val select : ('a, 'b) t -> 'a Lambda_list.t -> 'b Expr.t
+  val select : ('a, 'b) t -> 'a Expr.List.t -> 'b Expr.t
 end
 
 module type ZTuple = sig
@@ -563,8 +552,6 @@ module type Z3i_internal = sig
   module Ast : Ast 
   module Context : Context 
   module Expr : Expr 
-
-  module Lambda_list : module type of Typed_list.Make_lambda(Types.Expr)
 
   module Sort : Sort 
   module Bitvector : Bitvector 

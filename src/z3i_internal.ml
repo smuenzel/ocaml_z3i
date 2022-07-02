@@ -68,8 +68,6 @@ and Expr : Expr
 
   include Types.Expr
 
-  let sexp_of_t _ t = [%sexp_of: string] (Expr.to_string t)
-
   let context t =
     Z3native.context_of_ast (Native.to_native t)
     |> Context.Native.unsafe_of_native
@@ -85,6 +83,8 @@ and Expr : Expr
   let to_string = (ZExpr.to_string : raw -> string :> _ t -> string)
 
   let to_ast t = ZExpr.ast_of_expr (to_raw t)
+
+  let sexp_of_t _ t = [%sexp_of: string] (to_string t)
 
   let const (type s) symbol (sort : s Sort.t) : s t =
     ZExpr.mk_const (Sort.context sort) symbol (sort : _ Sort.t :> Z3.Sort.sort)
@@ -132,7 +132,7 @@ end
   let tuple_elements s =
     let raw = to_raw s in
     Z3.Tuple.get_field_decls raw
-    |> List.map ~f:Z3.FuncDecl.get_range
+    |> Base.List.map ~f:Z3.FuncDecl.get_range
     |> unsafe_of_raw_list
     |> pack_list
 
@@ -305,10 +305,14 @@ end
     | ARRAY_SORT ->
       (* CR smuenzel: too much magic *)
       let t = (Obj.magic : s t -> _ S.array t) t in
-      let _, domain = Sort_list.to_list (ZArray.domain t) in
+      let domain =
+        Sort.List.higher (ZArray.domain t) 
+        |> Typed_list.Lambda_higher.to_list_map
+          { f = fun x -> Sort.(T !< x) }
+      in
       let range = ZArray.range t in
       let all_array_domains =
-        List.map domain
+        Base.List.map domain
           ~f:(fun (T s) ->
               S.K
                 (sort_kind ((Obj.magic : _ t -> _ t) s)))
@@ -325,7 +329,7 @@ end
         | _ -> 
           let elements = tuple_elements t in
           let TP tuple_instance =
-            List.map elements
+            Base.List.map elements
               ~f:(fun (T x) -> S.K (sort_kind x))
             |> Kind.kind_list_to_tuple_instance
           in
@@ -343,7 +347,7 @@ end
 
   let func_decl_domain t =
     let d = Z3.FuncDecl.get_domain (Function_declaration.to_raw t) in
-    let kind_list = List.map d ~f:(fun s -> S.K (sort_kind (Sort.unsafe_of_raw s))) in
+    let kind_list = Base.List.map d ~f:(fun s -> S.K (sort_kind (unsafe_of_raw s))) in
     Kind.kind_list_to_lambda_instance kind_list
 
   let func_decl_range t =
@@ -689,10 +693,6 @@ end
 
 and Function_declaration : Function_declaration
 = struct
-  module Lambda_list = Lambda_list
-
-  module Sort_list = Sort_list
-
   include Types.Function_declaration
 
   module ZFuncDecl = Z3.FuncDecl
@@ -706,14 +706,14 @@ and Function_declaration : Function_declaration
     ZFuncDecl.get_name (to_raw t)
     |> Symbol.context
 
-  let domain (type a) (t : (a, _) t) : a Sort_list.t =
-    let T result =
+  let domain (type a) (t : (a, _) t) : a Sort.List.t =
+    let L result =
       Z3.FuncDecl.get_domain (Function_declaration.to_raw t)
       |> Sort.unsafe_of_raw_list
       |> Sort.pack_list
-      |> Sort_list.of_packed_list
+      |> Sort.List.of_packed_list
     in
-    (Obj.magic : _ Sort_list.t -> _ Sort_list.t) result
+    (Obj.magic : _ Sort.List.t -> _ Sort.List.t) result
 
   let range t =
     Z3.FuncDecl.get_range (Function_declaration.to_raw t)
@@ -766,15 +766,20 @@ and Function_declaration : Function_declaration
   let app
       (type inputs body)
       (t : (inputs,body) t)
-      (ss : inputs Lambda_list.t)
+      (ss : inputs Expr.List.t)
     : body Expr.t =
-    let length, as_list = Lambda_list.to_list ss in
+    let as_list =
+      Expr.List.higher ss
+      |> Typed_list.Lambda_higher.to_list_map
+        { f = fun x -> Expr.(Native.to_native !< x)}
+    in
+    let length = List.length as_list in
     let context = context t in
     Z3native.mk_app
       (Context.Native.to_native context)
       (Function_declaration.Native.to_native t)
       length
-      (Expr.Native.to_native_list as_list)
+      as_list
     |> Expr.Native.unsafe_of_native
 end
 
@@ -1064,7 +1069,6 @@ end
 and Quantifier : Quantifier
 = struct
 
-  module Lambda_list = Lambda_list
   module ZQuantifier = Z3.Quantifier
 
   include Types.Quantifier
@@ -1089,8 +1093,8 @@ and Quantifier : Quantifier
       ~body
     : s t
     =
-    let _, Sort.T head_sort = List.hd_exn variables in
-    let symbols, sorts = List.unzip variables in
+    let _, Sort.T head_sort = Base.List.hd_exn variables in
+    let symbols, sorts = Base.List.unzip variables in
     let ctx = Sort.context head_sort in
     ZQuantifier.mk_quantifier
       ctx
@@ -1117,7 +1121,7 @@ and Quantifier : Quantifier
       ~body
     : s t
     =
-    let Expr.T head_expr = List.hd_exn variables in
+    let Expr.T head_expr = Base.List.hd_exn variables in
     let ctx = Expr.context head_expr in
     ZQuantifier.mk_quantifier_const
       ctx
@@ -1205,11 +1209,15 @@ and Quantifier : Quantifier
 
   let lambda_const
       (type final inputs)
-      (variables : inputs Lambda_list.t)
+      (variables : inputs Expr.List.t)
       ~(body:final Expr.t)
     : (inputs, final) S.array t 
     =
-    let _, variables = Lambda_list.to_list variables in
+    let variables =
+      Typed_list.Lambda_higher.to_list_map
+        { f = fun e -> Expr.(T !< e) }
+        (Expr.List.higher variables)
+    in
     ZQuantifier.mk_lambda_const
       (Expr.context body)
       (Expr.to_raw_unpack_list variables)
@@ -1248,16 +1256,13 @@ and Pattern : Pattern
 
   let create exprs =
     Z3.Quantifier.mk_pattern
-      (Expr.context (List.hd_exn exprs))
+      (Expr.context (Base.List.hd_exn exprs))
       (Expr.to_raw_list exprs)
     |> unsafe_of_raw
 end
 
 and ZArray : ZArray
 = struct
-
-  module Lambda_list = Lambda_list
-  module Sort_list = Sort_list
 
   type ('a, 'b) t = ('a, 'b) S.array Expr.t
 
@@ -1282,12 +1287,12 @@ and ZArray : ZArray
 
   let all_array_domains (s : (_,_) S.array Sort.t) = all_array_domains [] s 0
 
-  let domain (type a) (s : (a, _) S.array Sort.t) : a Sort_list.t =
-    let T result =
+  let domain (type a) (s : (a, _) S.array Sort.t) : a Sort.List.t =
+    let L result =
       all_array_domains s
-      |> Sort_list.of_packed_list
+      |> Sort.List.of_packed_list
     in
-    (Obj.magic : _ Sort_list.t -> _ Sort_list.t) result
+    (Obj.magic : _ Sort.List.t -> _ Sort.List.t) result
 
   let range (type b c) (s : (c, b) S.array Sort.t) : b Sort.t =
     Z3.Z3Array.get_range (Sort.to_raw s)
@@ -1300,23 +1305,22 @@ and ZArray : ZArray
   let select
       (type inputs body)
       (ar : (inputs,body) S.array Expr.t)
-      (ss : inputs Lambda_list.t)
+      (ss : inputs Expr.List.t)
     : body Expr.t =
-    let length, as_list = Lambda_list.to_list ss in
+    let as_list =
+      Expr.List.higher ss
+      |> Typed_list.Lambda_higher.to_list_map
+        { f = fun x -> Expr.(Native.to_native !< x) }
+    in
+    let length = List.length as_list in
     Z3native.mk_select_n
       (Expr.context ar |> Context.Native.to_native)
       (Expr.Native.to_native ar)
       length
-      (Expr.Native.to_native_list as_list)
+      as_list
     |> Expr.Native.unsafe_of_native
 
 end
-
-and Lambda_list : module type of Typed_list.Make_lambda(Types.Expr)
-  = Typed_list.Make_lambda(Types.Expr)
-
-and Sort_list : module type of Typed_list.Make_lambda(Types.Sort)
-  = Typed_list.Make_lambda(Types.Sort)
 
 and Symbol_sort_list
   : Typed_list.Simple
@@ -1391,4 +1395,3 @@ module ZTuple : ZTuple
   , Function_declaration.Native.unsafe_of_native constructor
   , accessors
 end
-
