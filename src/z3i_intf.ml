@@ -530,12 +530,13 @@ module type ZTuple = sig
       with type ('arg,_) Inner.t = Symbol.t * 'arg Sort.t
 
   module Field_accessor 
-    : Typed_list.Simple_inner
+    : Higher_kinded_short.S2
       with type ('arg, 'extra) t = ('extra * Nothing.t,'arg) Function_declaration.t
 
   module Field_accessor_list
-    : Typed_list.Simple_t2
+    : Typed_list.Lambda_lower2
       with module Inner := Field_accessor
+       and module Lambda_higher := Lambda_higher
 
   type 'a t = 'a S.tuple S.datatype Expr.t
 

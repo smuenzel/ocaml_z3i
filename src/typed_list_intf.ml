@@ -118,6 +118,20 @@ module type Lambda_lower = sig
   val lower : (Inner.higher_kinded, 'inputs) Lambda_higher.t -> 'inputs t
 end
 
+module type Lambda_lower2 = sig
+  module Lambda_higher : Lambda_higher
+  module Inner : Higher_kinded.S2
+
+  type ('inputs, 'extra) t =
+    | [] : (Nothing.t, _) t
+    | (::) : ('arg, 'extra) Inner.t * ('next_args, 'extra) t -> (('arg * 'next_args), 'extra) t
+
+  type 'extra packed = | L : (_, 'extra) t -> 'extra packed [@@unboxed]
+
+  val higher : ('inputs, 'extra) t -> ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t
+  val lower : ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t -> ('inputs, 'extra) t
+end
+
 
 module type Typed_list = sig
   module type Simple0_inner = Simple0_inner
@@ -140,5 +154,10 @@ module type Typed_list = sig
   module Make_lambda_lower(Inner : Higher_kinded.S)
     : Lambda_lower with module Inner = Inner
                     and module Lambda_higher := Lambda_higher
+
+  module type Lambda_lower2 = Lambda_lower2
+  module Make_lambda_lower2(Inner : Higher_kinded.S2)
+    : Lambda_lower2 with module Inner = Inner
+                     and module Lambda_higher := Lambda_higher
 
 end

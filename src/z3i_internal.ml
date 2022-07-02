@@ -746,7 +746,7 @@ and Function_declaration : Function_declaration
       in
       if
         Sort.equal arange brange
-        && List.equal
+        && Base.List.equal
           (fun a b ->
              Sort.equal (Sort.unsafe_of_raw a) (Sort.unsafe_of_raw b)
           )
@@ -773,7 +773,7 @@ and Function_declaration : Function_declaration
       |> Typed_list.Lambda_higher.to_list_map
         { f = fun x -> Expr.(Native.to_native !< x)}
     in
-    let length = List.length as_list in
+    let length = Base.List.length as_list in
     let context = context t in
     Z3native.mk_app
       (Context.Native.to_native context)
@@ -1342,15 +1342,15 @@ module ZTuple : ZTuple
 
   module Field_accessor = struct
     type ('arg, 'extra) t = ('extra * Nothing.t,'arg) Function_declaration.t 
-    type 'extra packed = | T : (_, 'extra) t -> 'extra packed [@@unboxed]
-    let pack x = T x
-    let same_witness (type a b c) (a : (a, c) t) (b : (b,c) t) : (a, b) Type_equal.t option =
-      match Function_declaration.same_witness a b with
-      | None -> None
-      | Some T -> Some T
+
+    include Higher_kinded_short.Make2(struct
+        type nonrec ('a, 'b) t = ('a, 'b) t
+      end)
   end
 
-  module Field_accessor_list = Typed_list.Make_simple(Field_accessor)
+  module Field_accessor_list = struct
+    include Typed_list.Make_lambda_lower2(Field_accessor)
+  end 
 
   module Z3Tuple = Z3.Tuple
 
@@ -1378,13 +1378,13 @@ module ZTuple : ZTuple
     let rec make_accessors : Function_declaration.packed list -> 'res Field_accessor_list.packed =
       fun list ->
       match (list : Function_declaration.packed list) with
-      | [] -> Field_accessor_list.(S [])
+      | [] -> Field_accessor_list.(L [])
       | T x :: xs ->
-        let S rest = make_accessors xs in
+        let L rest = make_accessors xs in
         let x = (Obj.magic : (_, _) Function_declaration.t -> (_,_) Field_accessor.t) x in
-        Field_accessor_list.(S (x :: rest))
+        Field_accessor_list.(L (x :: rest))
     in
-    let Field_accessor_list.S accessors =
+    let Field_accessor_list.L accessors =
       Function_declaration.Native.unsafe_of_native_list accessors
       |> make_accessors
     in

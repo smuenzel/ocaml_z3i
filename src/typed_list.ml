@@ -99,6 +99,19 @@ module Make_lambda_lower(Inner : Higher_kinded.S) = struct
   external lower : (Inner.higher_kinded, 'inputs) Lambda_higher.t -> 'inputs t = "%identity"
 end
 
+module Make_lambda_lower2(Inner : Higher_kinded.S2) = struct
+  module Inner = Inner
+
+  type ('inputs, 'extra) t =
+    | [] : (Nothing.t, _) t
+    | (::) : ('arg, 'extra) Inner.t * ('next_args, 'extra) t -> (('arg * 'next_args), 'extra) t
+
+  type 'extra packed = | L : (_, 'extra) t -> 'extra packed [@@unboxed]
+
+  external higher : ('inputs, 'extra) t -> ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t = "%identity"
+  external lower : ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t -> ('inputs, 'extra) t = "%identity"
+end
+
 module Make_lambda(Inner : Pack_inner) = struct
   module Inner = Inner
 

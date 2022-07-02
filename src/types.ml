@@ -138,6 +138,16 @@ module type With_raw2 = sig
 
   val to_raw_unpack_list : packed list -> raw list
 
+  module Higher : Higher_kinded_short.S2 with type ('a, 'b) t := ('a, 'b) t
+  include module type of struct include Higher end
+
+  module List : sig
+    include Typed_list.Lambda_lower2
+      with module Lambda_higher := Typed_list.Lambda_higher
+       and type ('a, 'b) Inner.t := ('a, 'b) t
+       and module Inner := Higher
+  end
+
   module Native : Native2 with type ('a, 'b) t := ('a, 'b) t
                            and type packed := packed
                            and type native = With_sort.native
@@ -159,6 +169,18 @@ module Make_raw2(With_sort : With_sort2) : With_raw2 with module With_sort := Wi
   external pack_list : (_,_) t list -> packed list = "%identity"
 
   external to_raw_unpack_list : packed list -> raw list = "%identity"
+
+  module Higher = Higher_kinded_short.Make2(struct
+      type nonrec ('a, 'b) t = ('a, 'b) t
+    end)
+  include Higher
+
+  module List = struct
+    include Typed_list.Make_lambda_lower2(struct
+        type nonrec ('a, 'b) t = ('a, 'b) t
+        include Higher
+      end)
+  end
 
   module Native = struct
     type native = With_sort.native
