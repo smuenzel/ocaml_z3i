@@ -78,6 +78,11 @@ and Expr : Expr
 
   let sort_kind t = Sort.sort_kind (sort t)
 
+  let is_kind_exn (type a b) (t : a t) (sk : b Sort.Kind.t) : (a, b) Type_equal.t =
+    match Sort.Kind.same (sort_kind t) sk with
+    | None -> assert false
+    | Some T -> T
+
   let is_numeral = (ZExpr.is_numeral : raw -> bool :> _ t -> bool)
 
   let to_string = (ZExpr.to_string : raw -> string :> _ t -> string)
@@ -1347,6 +1352,15 @@ and ZTuple : ZTuple
 
   type 'a t = 'a S.tuple S.datatype Expr.t
 
+  let rec unsafe_make_accessors : Function_declaration.packed list -> 'res Field_accessor_list.packed =
+    fun list ->
+    match (list : Function_declaration.packed list) with
+    | [] -> Field_accessor_list.(L [])
+    | T x :: xs ->
+      let L rest = unsafe_make_accessors xs in
+      let x = (Obj.magic : (_, _) Function_declaration.t -> (_,_) Field_accessor.t) x in
+      Field_accessor_list.(L (x :: rest))
+
   let create_sort
     (type a)
     symbol
@@ -1375,23 +1389,27 @@ and ZTuple : ZTuple
         symbols
         sorts
     in
-    let rec make_accessors : Function_declaration.packed list -> 'res Field_accessor_list.packed =
-      fun list ->
-      match (list : Function_declaration.packed list) with
-      | [] -> Field_accessor_list.(L [])
-      | T x :: xs ->
-        let L rest = make_accessors xs in
-        let x = (Obj.magic : (_, _) Function_declaration.t -> (_,_) Field_accessor.t) x in
-        Field_accessor_list.(L (x :: rest))
-    in
     let Field_accessor_list.L accessors =
       Function_declaration.Native.unsafe_of_native_list accessors
-      |> make_accessors
+      |> unsafe_make_accessors
     in
     let accessors =
-      (Obj.magic : (_,'a) Field_accessor_list.t -> (a,a S.tuple S.datatype) Field_accessor_list.t) accessors
+      (Obj.magic : (_,_) Field_accessor_list.t -> (a, a S.tuple S.datatype) Field_accessor_list.t) accessors
     in
     Sort.Native.unsafe_of_native sort
   , Function_declaration.Native.unsafe_of_native constructor
   , accessors
+
+  let accessors
+      (type a)
+      (sort : (a S.tuple S.datatype as 'res) Sort.t)
+    : (a, a S.tuple S.datatype) Field_accessor_list.t
+    =
+    let Field_accessor_list.L accessors =
+      Z3Tuple.get_field_decls (Sort.to_raw sort)
+      |> Function_declaration.unsafe_of_raw_list
+      |> Function_declaration.pack_list
+      |> unsafe_make_accessors
+    in
+    (Obj.magic : (_,_) Field_accessor_list.t -> (a, a S.tuple S.datatype) Field_accessor_list.t) accessors
 end

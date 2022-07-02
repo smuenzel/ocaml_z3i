@@ -122,6 +122,7 @@ module type Expr = sig
   val context : _ t -> Context.t
   val sort : 's t -> 's Sort.t
   val sort_kind : 's t -> 's S.kind
+  val is_kind_exn : 's t -> 'ss S.kind -> ('s, 'ss) Type_equal.t
 
   val is_numeral : _ t -> bool
 
@@ -304,7 +305,7 @@ module type Function_declaration = sig
       
   val context : (_,_) t -> Context.t
 
-  val domain : ('d,_) t -> 'd Sort.List.t
+  val domain : ('d, _) t -> 'd Sort.List.t
   val range : (_, 'body) t -> 'body Sort.t
 
   val sort_kind
@@ -532,7 +533,7 @@ module type ZTuple = sig
 
   module Field_accessor 
     : Higher_kinded_short.S2
-      with type ('arg, 'extra) t = ('extra * Nothing.t,'arg) Function_declaration.t
+      with type ('arg, 'extra) t = ('extra * Nothing.t, 'arg) Function_declaration.t
 
   module Field_accessor_list
     : Typed_list.Lambda_lower2
@@ -548,6 +549,10 @@ module type ZTuple = sig
          * ('a,'res) Function_declaration.t
          * ('a,'res) Field_accessor_list.t
          )
+
+  val accessors
+    : ('a S.tuple S.datatype as 'res) Sort.t
+    -> ('a, 'res) Field_accessor_list.t
 end
 
 module type Z3i_internal = sig
@@ -616,5 +621,7 @@ module type Z3i = sig
 
   module Mux : Mux 
   module Symbol_builder : Symbol_builder 
+
+  module Typed_list = Typed_list
 
 end
