@@ -1322,23 +1322,14 @@ and ZArray : ZArray
 
 end
 
-and Symbol_sort_list
-  : Typed_list.Simple
-    with type ('arg, _) Inner.t = Types.Symbol.t * 'arg Types.Sort.t
-     and type _ Inner.packed = Types.Symbol.t * Types.Sort.packed
-= struct
-  module Inner = struct
-    include Symbol_sort_list.Inner
-    let pack (sy, so) = sy, Sort.T so
-  end
-  include Typed_list.Make_simple(Inner)
-end
-
-module ZTuple : ZTuple
-   with module Symbol_sort_list := Symbol_sort_list
+and ZTuple : ZTuple
 = struct
 
-  module Symbol_sort_list = Symbol_sort_list
+  module Symbol_sort_list =
+    Typed_list.Make_lambda_lower(struct
+      type 'a t = Symbol.t * 'a Sort.t
+      include Higher_kinded_short.Make1(struct type nonrec 'a t = 'a t end)
+    end)
 
   module Field_accessor = struct
     type ('arg, 'extra) t = ('extra * Nothing.t,'arg) Function_declaration.t 
@@ -1359,21 +1350,30 @@ module ZTuple : ZTuple
   let create_sort
     (type a)
     symbol
-    (list : (a, 'res) Symbol_sort_list.t)
+    (list : a Symbol_sort_list.t)
     : ( (a S.tuple S.datatype as 'res) Sort.t
         * (a,'res) Function_declaration.t
         * (a,'res) Field_accessor_list.t
       )
     =
-    let length, list = Symbol_sort_list.to_list list in
+    let list =
+      Symbol_sort_list.higher list
+      |> Typed_list.Lambda_higher.to_list_map
+        { f = fun x ->
+              let symbol, sort = Symbol_sort_list.Inner.project x in
+              Symbol.Native.to_native symbol
+            , Sort.Native.to_native sort
+        }
+    in
+    let length = List.length list in
     let symbols, sorts = List.unzip list in
     let sort, constructor, accessors =
       Z3native.mk_tuple_sort
         (Symbol.context symbol |> Context.Native.to_native)
         (Symbol.Native.to_native symbol)
         length
-        (Symbol.Native.to_native_list symbols)
-        (Sort.Native.to_native_list sorts)
+        symbols
+        sorts
     in
     let rec make_accessors : Function_declaration.packed list -> 'res Field_accessor_list.packed =
       fun list ->

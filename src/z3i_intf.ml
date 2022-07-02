@@ -526,8 +526,9 @@ module type ZTuple = sig
   open Types
 
   module Symbol_sort_list
-    : Typed_list.Simple_t2
-      with type ('arg,_) Inner.t = Symbol.t * 'arg Sort.t
+    : Typed_list.Lambda_lower
+      with type 'arg Inner.t = Symbol.t * 'arg Sort.t
+       and module Lambda_higher := Lambda_higher
 
   module Field_accessor 
     : Higher_kinded_short.S2
@@ -542,7 +543,7 @@ module type ZTuple = sig
 
   val create_sort
     :  Symbol.t
-    -> ('a, 'res) Symbol_sort_list.t
+    -> 'a Symbol_sort_list.t
     -> ( ('a S.tuple S.datatype as 'res) Sort.t
          * ('a,'res) Function_declaration.t
          * ('a,'res) Field_accessor_list.t
@@ -571,13 +572,8 @@ module type Z3i_internal = sig
   module Pattern : Pattern 
   module ZArray : ZArray 
 
-  module Symbol_sort_list
-    : Typed_list.Simple_t2
-      with type ('arg,_) Inner.t = Symbol.t * 'arg Sort.t
-
   module ZTuple
     : ZTuple 
-      with module Symbol_sort_list := Symbol_sort_list
 
   module S = S
 end
