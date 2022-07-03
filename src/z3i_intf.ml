@@ -294,6 +294,12 @@ module type Model = sig
   val const_interp_e : t -> 's Expr.t -> 's Expr.t option
   val const_interp_e_exn : t -> 's Expr.t -> 's Expr.t
 
+  val const_decls : t -> Function_declaration.packed list
+  val func_decls : t -> Function_declaration.packed list
+
+  val num_consts : t -> int
+  val num_funcs : t -> int
+
   module Native : Native with type t := t and type native := Z3native.model
 end
 

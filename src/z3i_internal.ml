@@ -688,6 +688,19 @@ and Model : Model
   let const_interp_e_exn (type s) t (expr : s Expr.t) =
     Option.value_exn (const_interp_e t expr)
 
+  let num_consts t = ZModel.get_num_consts t
+  let num_funcs t = ZModel.get_num_funcs t
+
+  let const_decls t =
+    ZModel.get_const_decls t
+    |> Function_declaration.unsafe_of_raw_list
+    |> Function_declaration.pack_list
+
+  let func_decls t =
+    ZModel.get_func_decls t
+    |> Function_declaration.unsafe_of_raw_list
+    |> Function_declaration.pack_list
+
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.model)
     let to_native_list = (Obj.magic : t list -> Z3native.model list)
