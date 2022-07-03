@@ -1488,6 +1488,14 @@ and ZTuple : ZTuple
       |> unsafe_make_accessors
     in
     (Obj.magic : (_,_) Field_accessor_list.t -> (a, a S.tuple S.datatype) Field_accessor_list.t) accessors
+
+  let constructor
+      (type a)
+      (sort : (a S.tuple S.datatype as 'res) Sort.t)
+    : (a,a S.tuple S.datatype) Function_declaration.t
+    =
+    Z3Tuple.get_mk_decl (Sort.to_raw sort)
+    |> Function_declaration.unsafe_of_raw
 end
 
 and Statistics : Statistics = struct

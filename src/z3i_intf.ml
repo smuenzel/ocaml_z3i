@@ -578,6 +578,10 @@ module type ZTuple = sig
   val accessors
     : ('a S.tuple S.datatype as 'res) Sort.t
     -> ('a, 'res) Field_accessor_list.t
+
+  val constructor
+    : ('a S.tuple S.datatype as 'res) Sort.t
+    -> ('a,'res) Function_declaration.t
 end
 
 module type Statistics = sig
