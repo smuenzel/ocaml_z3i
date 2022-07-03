@@ -23,10 +23,12 @@ module rec Context : Context
       *)
 
   let create
+      ?(parallel = true)
       ?(model = true)
       ?(proof = false)
       ()
     =
+    Z3.set_global_param "parallel.enable" (Bool.to_string parallel);
     Z3.mk_context 
       [ "model", Bool.to_string model
       ; "proof", Bool.to_string proof 
@@ -110,7 +112,10 @@ and Expr : Expr
     |> unsafe_of_raw
 
   let simplify e = 
-    ZExpr.simplify (to_raw e) None
+    let context = context e in
+    let params = Z3.Params.mk_params context in
+    Z3.Params.add_bool params (Symbol.of_string context "bit-blast") true;
+    ZExpr.simplify (to_raw e) (Some params)
     |> unsafe_of_raw
 
   (*
@@ -863,14 +868,30 @@ and Solver : Solver
 
   module ZSolver = Z3.Solver
 
-  let create context =
+  let create
+      ?timeout
+      context 
+    =
     let s = ZSolver.mk_solver context None in
     let p = Z3.Params.mk_params context in
+    Option.iter timeout
+      ~f:(fun timeout ->
+          let timeout =
+            Time_ns.Span.to_ms timeout
+            |> Float.iround_up_exn
+          in
+          Z3.Params.add_int p (Symbol.of_string context "timeout") timeout;
+        );
     Z3.Params.add_bool p (Symbol.of_string context "ctrl_c") false;
     ZSolver.set_parameters s p;
     s
 
   let to_string = ZSolver.to_string
+
+  let sexp_of_t t =
+    to_string t
+    |> Sexp.of_string_many
+    |> Sexp.List
 
   let add_list t exprs =
     ZSolver.add t (Expr.to_raw_list exprs)
@@ -890,6 +911,8 @@ and Solver : Solver
   let push = ZSolver.push
   let pop = ZSolver.pop
 
+  let stats = ZSolver.get_statistics
+
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.solver)
     let to_native_list = (Obj.magic : t list -> Z3native.solver list)
@@ -907,14 +930,32 @@ and Optimize : Optimize
 
   module ZOptimize = Z3.Optimize
 
-  let create context =
+  let create
+      ?timeout
+      context
+    =
     let s = ZOptimize.mk_opt context in
     let p = Z3.Params.mk_params context in
+    Option.iter timeout
+      ~f:(fun timeout ->
+          let timeout =
+            Time_ns.Span.to_ms timeout
+            |> Float.iround_up_exn
+          in
+          Z3.Params.add_int p (Symbol.of_string context "timeout") timeout;
+        );
     Z3.Params.add_bool p (Symbol.of_string context "ctrl_c") false;
     ZOptimize.set_parameters s p;
     s
 
+  let stats = ZOptimize.get_statistics
+
   let to_string t = ZOptimize.to_string t
+
+  let sexp_of_t t =
+    to_string t
+    |> Sexp.of_string_many
+    |> Sexp.List
 
   let add_list t list =
     ZOptimize.add t (Expr.to_raw_list list)
@@ -1447,4 +1488,11 @@ and ZTuple : ZTuple
       |> unsafe_make_accessors
     in
     (Obj.magic : (_,_) Field_accessor_list.t -> (a, a S.tuple S.datatype) Field_accessor_list.t) accessors
+end
+
+and Statistics : Statistics = struct
+  type t = Types.Statistics.t
+
+  let to_string = Z3.Statistics.to_string
+
 end

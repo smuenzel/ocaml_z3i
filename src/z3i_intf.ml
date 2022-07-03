@@ -140,7 +140,12 @@ end
 module type Context = sig
   type t = Types.Context.t
 
-  val create : ?model:bool -> ?proof:bool -> unit -> t
+  val create
+    :  ?parallel:bool
+    -> ?model:bool
+    -> ?proof:bool
+    -> unit
+    -> t
 
   module Native : Native with type t := t and type native := Z3native.context
 end
@@ -359,12 +364,17 @@ end
 module type Generic_solver = sig
   open Types
 
-  type t
+  type t [@@deriving sexp_of]
   type native
 
   val context : t -> Context.t
 
-  val create : Context.t -> t
+  val create
+    :  ?timeout:Time_ns.Span.t
+    -> Context.t
+    -> t
+
+  val stats : t -> Statistics.t
 
   val to_string : t -> string
 
@@ -570,6 +580,13 @@ module type ZTuple = sig
     -> ('a, 'res) Field_accessor_list.t
 end
 
+module type Statistics = sig
+  open Types
+  type t = Statistics.t
+
+  val to_string : t -> string
+end
+
 module type Z3i_internal = sig
   module Ast : Ast 
   module Context : Context 
@@ -584,6 +601,8 @@ module type Z3i_internal = sig
 
   module Solver_result : Solver_result
     with type 'a t = 'a Types.Solver_result.t
+
+  module Statistics : Statistics
 
   module Optimize : Optimize 
   module Symbol : Symbol 

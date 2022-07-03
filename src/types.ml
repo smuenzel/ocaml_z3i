@@ -56,6 +56,10 @@ module Solver_result = struct
     | Satisfiable of 'a
 end
 
+module Statistics = struct
+  type t = Z3.Statistics.statistics
+end
+
 module Quantifier = struct
   module rec T : With_sort with type raw = Z3.Quantifier.quantifier
                             and type native = Z3native.ast
