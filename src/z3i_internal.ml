@@ -500,6 +500,14 @@ and Bitvector : Bitvector
     ZBitvector.mk_shl (Expr.context t) (Expr.to_raw t) (Expr.to_raw count)
     |> Expr.unsafe_of_raw
 
+  let shift_right t ~count =
+    ZBitvector.mk_lshr (Expr.context t) (Expr.to_raw t) (Expr.to_raw count)
+    |> Expr.unsafe_of_raw
+
+  let shift_arithmetic_right t ~count =
+    ZBitvector.mk_ashr (Expr.context t) (Expr.to_raw t) (Expr.to_raw count)
+    |> Expr.unsafe_of_raw
+
   let is_add_overflow ~signed a b : Boolean.t =
     let ctx = Expr.context a in
     Expr.unsafe_of_raw (ZBitvector.mk_add_no_overflow ctx (Expr.to_raw a) (Expr.to_raw b) signed)

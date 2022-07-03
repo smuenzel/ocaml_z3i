@@ -224,6 +224,8 @@ module type Bitvector = sig
   val mul : t -> t -> t
 
   val shift_left : t -> count:t -> t
+  val shift_right : t -> count:t -> t
+  val shift_arithmetic_right : t -> count:t -> t
 
   val concat : t -> t -> t
   val concat_list : t list -> t
