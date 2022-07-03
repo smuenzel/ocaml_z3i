@@ -120,6 +120,8 @@ module type Expr = sig
   include sig type 'a t [@@deriving sexp_of] end with type 'a t := 'a t
 
   val context : _ t -> Context.t
+  val translate : 'a t -> Context.t -> 'a t
+
   val sort : 's t -> 's Sort.t
   val sort_kind : 's t -> 's S.kind
   val is_kind_exn : 's t -> 'ss S.kind -> ('s, 'ss) Type_equal.t

@@ -74,6 +74,9 @@ and Expr : Expr
     Z3native.context_of_ast (Native.to_native t)
     |> Context.Native.unsafe_of_native
 
+  let translate t context =
+    Z3.Expr.translate (to_raw t) context |> unsafe_of_raw
+
   let sort (type s) (t : s t) : s Sort.t =
     ZExpr.get_sort (to_raw t)
     |> Sort.unsafe_of_raw
