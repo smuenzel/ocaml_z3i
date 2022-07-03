@@ -291,6 +291,9 @@ module type Model = sig
   val eval : ?apply_model_completion:bool -> t -> 's Expr.t -> 's Expr.t option
   val eval_exn : ?apply_model_completion:bool -> t -> 's Expr.t -> 's Expr.t
 
+  val const_interp : t -> (Nothing.t, 's) Function_declaration.t -> 's Expr.t option
+  val const_interp_exn : t -> (Nothing.t, 's) Function_declaration.t -> 's Expr.t
+
   val const_interp_e : t -> 's Expr.t -> 's Expr.t option
   val const_interp_e_exn : t -> 's Expr.t -> 's Expr.t
 
@@ -313,6 +316,12 @@ module type Function_declaration = sig
 
   val domain : ('d, _) t -> 'd Sort.List.t
   val range : (_, 'body) t -> 'body Sort.t
+
+  val name : (_,_) t -> Symbol.t
+
+  val is_nullary_exn
+    : ('a, 'body) t
+    -> ('a, Nothing.t) Type_equal.t
 
   val sort_kind
     : ('a, 'body) t 
@@ -399,7 +408,7 @@ end
 module type Symbol = sig
   open Types
 
-  type t = Symbol.t
+  type t = Symbol.t [@@deriving sexp_of]
 
   val context : t -> Context.t
 

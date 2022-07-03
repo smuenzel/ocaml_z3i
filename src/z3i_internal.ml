@@ -681,6 +681,13 @@ and Model : Model
     eval ?apply_model_completion t expr
     |> Option.value_exn ~message:"could not evaluate"
 
+  let const_interp (type s) t (fdecl : (Nothing.t, s) Function_declaration.t) =
+    ZModel.get_const_interp t (Function_declaration.to_raw fdecl)
+    |> (Obj.magic : Expr.raw option -> s Expr.t option)
+
+  let const_interp_exn (type s) t (fdecl : (Nothing.t, s) Function_declaration.t) =
+    Option.value_exn (const_interp t fdecl)
+
   let const_interp_e (type s) t (expr : s Expr.t) =
     ZModel.get_const_interp_e t (Expr.to_raw expr)
     |> (Obj.magic : Expr.raw option -> s Expr.t option)
@@ -732,6 +739,15 @@ and Function_declaration : Function_declaration
       |> Sort.List.of_packed_list
     in
     (Obj.magic : _ Sort.List.t -> _ Sort.List.t) result
+
+  let is_nullary_exn
+      (type a body)
+      (t : (a, body) t)
+    : (a, Nothing.t) Type_equal.t
+    =
+    match domain t with
+    | [] -> T
+    | _ -> assert false
 
   let range t =
     Z3.FuncDecl.get_range (Function_declaration.to_raw t)
@@ -799,6 +815,8 @@ and Function_declaration : Function_declaration
       length
       as_list
     |> Expr.Native.unsafe_of_native
+
+  let name t = ZFuncDecl.get_name (to_raw t)
 end
 
 and Function_interpretation : Function_interpretation
@@ -971,6 +989,10 @@ and Symbol : Symbol
   let of_int = Z3.Symbol.mk_int
 
   let of_string = Z3.Symbol.mk_string
+
+  let sexp_of_t t =
+    Z3.Symbol.to_string t
+    |> [%sexp_of: string]
 
   let context t =
     Z3native.context_of_symbol (Symbol.Native.to_native t)
