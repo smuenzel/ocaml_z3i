@@ -24,6 +24,13 @@ module Lambda_higher_types = struct
     { f : 'arg . ('arg -> 'inner1) Higher_kinded.t -> ('arg -> 'inner2) Higher_kinded.t
     } [@@unboxed]
 
+  type ('inner1, 'inner2) f_mapi =
+    { f : 'arg
+          . int
+        -> ('arg -> 'inner1) Higher_kinded.t
+        -> ('arg -> 'inner2) Higher_kinded.t
+    } [@@unboxed]
+
   type ('inner1a, 'inner1b, 'inner2) f_map2 =
     { f : 'arg 
           . ('arg -> 'inner1a) Higher_kinded.t
@@ -46,6 +53,8 @@ end
 module type Lambda_higher = sig
   include module type of struct include Lambda_higher_types end
 
+  val length : _ t -> int
+
   val iter
     :  'inner1 f_iter
     -> ('inner1, 'inputs) t
@@ -53,6 +62,11 @@ module type Lambda_higher = sig
 
   val map
     :  ('inner1, 'inner2) f_map
+    -> ('inner1, 'inputs) t
+    -> ('inner2, 'inputs) t
+
+  val mapi
+    :  ('inner1, 'inner2) f_mapi
     -> ('inner1, 'inputs) t
     -> ('inner2, 'inputs) t
 
@@ -86,6 +100,8 @@ module type Lambda_lower = sig
 
   val higher : 'inputs t -> (Inner.higher_kinded, 'inputs) Lambda_higher.t
   val lower : (Inner.higher_kinded, 'inputs) Lambda_higher.t -> 'inputs t
+
+  val length : _ t -> int
 end
 
 module type Lambda_lower2 = sig
@@ -100,6 +116,8 @@ module type Lambda_lower2 = sig
 
   val higher : ('inputs, 'extra) t -> ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t
   val lower : ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t -> ('inputs, 'extra) t
+
+  val length : _ t -> int
 end
 
 

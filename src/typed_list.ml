@@ -5,6 +5,19 @@ include Typed_list_intf
 module Lambda_higher = struct
   include Lambda_higher_types
 
+  let rec length
+    : 'inner1 'inputs .
+      ('inner1, 'inputs) t
+      -> int
+    =
+    fun (type inner1 inputs)
+      (t : (inner1, inputs) t)
+      ->
+        match t with
+        | [] -> 0
+        | _ :: xs ->
+          1 + length xs
+
   let [@tail_mod_cons] rec iter
     : 'inner1 'inputs .
       'inner1 f_iter
@@ -38,6 +51,27 @@ module Lambda_higher = struct
         | x :: xs ->
           let x = f x in
           x :: map { f } xs
+
+  let [@tail_mod_cons] rec mapi_internal
+    : 'inner1 'inner2 'inputs .
+      int
+      -> ('inner1, 'inner2) f_mapi
+      -> ('inner1, 'inputs) t
+      -> ('inner2, 'inputs) t
+    =
+    fun (type inner1 inner2 inputs)
+      (i : int)
+      ({ f } : (inner1, inner2) f_mapi)
+      (t : (inner1, inputs) t)
+      : (inner2, inputs) t
+      ->
+        match t with
+        | [] -> []
+        | x :: xs ->
+          let x = f i x in
+          x :: mapi_internal (succ i) { f } xs
+
+  let mapi f t = mapi_internal 0 f t
 
   let [@tail_mod_cons] rec map2
     : 'inner1a 'inner1b 'inner2 'inputs .
@@ -106,6 +140,8 @@ module Make_lambda_lower(Inner : Higher_kinded.S) = struct
 
   external higher : 'inputs t -> (Inner.higher_kinded, 'inputs) Lambda_higher.t = "%identity"
   external lower : (Inner.higher_kinded, 'inputs) Lambda_higher.t -> 'inputs t = "%identity"
+
+  let length t = Lambda_higher.length (higher t)
 end
 
 module Make_lambda_lower2(Inner : Higher_kinded.S2) = struct
@@ -119,4 +155,6 @@ module Make_lambda_lower2(Inner : Higher_kinded.S2) = struct
 
   external higher : ('inputs, 'extra) t -> ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t = "%identity"
   external lower : ('extra -> Inner.higher_kinded, 'inputs) Lambda_higher.t -> ('inputs, 'extra) t = "%identity"
+
+  let length t = Lambda_higher.length (higher t)
 end
