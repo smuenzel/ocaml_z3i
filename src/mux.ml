@@ -8,8 +8,8 @@ type t =
   ; length : int
   }
 
-let create
-    ~selector_symbol
+let create_with_selector_exn
+    ~selector
     inputs
   =
   let head = List.hd_exn inputs in
@@ -17,7 +17,12 @@ let create
   let input_sort = Expr.sort head in
   let length = List.length inputs in
   let selector_sort = Bitvector.create_sort context ~bits:length in
-  let selector = Expr.const selector_symbol selector_sort in
+  if not (Sort.equal (Expr.sort selector) selector_sort)
+  then raise_s
+      [%message "selector sort not equal"
+          (Expr.sort selector : _ Sort.t)
+          (selector_sort : _ Sort.t)
+      ];
   let selector_restrict = Bitvector.Set.has_single_member selector in
   let individuals =
     List.mapi inputs
@@ -38,6 +43,19 @@ let create
   ; output
   ; length
   }
+
+let create
+    ~selector_symbol
+    inputs
+  =
+  let head = List.hd_exn inputs in
+  let context = Expr.context head in
+  let length = List.length inputs in
+  let selector_sort = Bitvector.create_sort context ~bits:length in
+  let selector = Expr.const selector_symbol selector_sort in
+  create_with_selector_exn
+    ~selector
+    inputs
 
 let selector_at t i =
   Bitvector.extract_single t.selector i

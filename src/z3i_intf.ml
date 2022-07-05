@@ -635,6 +635,11 @@ module type Mux = sig
     ; length : int
     }
 
+  val create_with_selector_exn
+    :  selector: S.bv Expr.t
+    -> S.bv Expr.t list
+    -> t
+
   val create
     :  selector_symbol:Symbol.t
     -> S.bv Expr.t list
