@@ -590,6 +590,9 @@ and Bitvector : Bitvector
   let is_not_zero e : S.bool Expr.t =
     Boolean.neq e (Bitvector.Numeral.int_e e 0)
 
+  let is_all_ones e : S.bool Expr.t =
+    is_zero (not e)
+
   let sign a : t =
     extract_single a (size_e a - 1)
 

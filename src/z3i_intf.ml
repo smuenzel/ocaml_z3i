@@ -243,6 +243,7 @@ module type Bitvector = sig
 
   val is_zero : t -> S.bool Expr.t
   val is_not_zero : t -> S.bool Expr.t
+  val is_all_ones : t -> S.bool Expr.t
   val is_power_of_two : t -> S.bool Expr.t
   val is_power_of_two_or_zero : t -> S.bool Expr.t
   val is_add_overflow : signed:bool -> t -> t -> S.bool Expr.t
