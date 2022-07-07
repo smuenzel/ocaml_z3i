@@ -882,11 +882,22 @@ and Solver : Solver
 
   module ZSolver = Z3.Solver
 
-  let create
+  let set_timeout t timeout =
+    let context = context t in
+    let p = Z3.Params.mk_params context in
+    let timeout =
+      Time_ns.Span.to_ms timeout
+      |> Float.iround_up_exn
+    in
+    Z3.Params.add_int p (Symbol.of_string context "timeout") timeout;
+    ZSolver.set_parameters t p
+
+
+  let set_parameters
       ?timeout
-      context 
+      t
     =
-    let s = ZSolver.mk_solver context None in
+    let context = context t in
     let p = Z3.Params.mk_params context in
     Option.iter timeout
       ~f:(fun timeout ->
@@ -897,7 +908,14 @@ and Solver : Solver
           Z3.Params.add_int p (Symbol.of_string context "timeout") timeout;
         );
     Z3.Params.add_bool p (Symbol.of_string context "ctrl_c") false;
-    ZSolver.set_parameters s p;
+    ZSolver.set_parameters t p
+
+  let create
+      ?timeout
+      context 
+    =
+    let s = ZSolver.mk_solver context None in
+    set_parameters ?timeout s;
     s
 
   let to_string = ZSolver.to_string
@@ -943,6 +961,16 @@ and Optimize : Optimize
     |> Context.Native.unsafe_of_native
 
   module ZOptimize = Z3.Optimize
+
+  let set_timeout t timeout =
+    let context = context t in
+    let p = Z3.Params.mk_params context in
+    let timeout =
+      Time_ns.Span.to_ms timeout
+      |> Float.iround_up_exn
+    in
+    Z3.Params.add_int p (Symbol.of_string context "timeout") timeout;
+    ZOptimize.set_parameters t p
 
   let create
       ?timeout

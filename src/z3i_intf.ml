@@ -379,6 +379,8 @@ module type Generic_solver = sig
     -> Context.t
     -> t
 
+  val set_timeout : t -> Time_ns.Span.t -> unit
+
   val stats : t -> Statistics.t
 
   val to_string : t -> string
