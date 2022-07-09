@@ -394,6 +394,8 @@ module type Generic_solver = sig
   val push : t -> unit
   val pop : t -> int -> unit
 
+  val enter_scope : t -> (t -> 'a) -> 'a
+
   module Native : Native with type t := t and type native := native
 end
 

@@ -943,6 +943,12 @@ and Solver : Solver
   let push = ZSolver.push
   let pop = ZSolver.pop
 
+  let enter_scope t f =
+    push t;
+    let result = f t in
+    pop t 1;
+    result
+
   let stats = ZSolver.get_statistics
 
   module Native = struct
@@ -1021,6 +1027,12 @@ and Optimize : Optimize
 
   let push t = ZOptimize.push t
   let pop t scopes = for _ = 1 to scopes do ZOptimize.pop t done
+
+  let enter_scope t f =
+    push t;
+    let result = f t in
+    pop t 1;
+    result
 
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.optimize)
