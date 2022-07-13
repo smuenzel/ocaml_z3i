@@ -61,11 +61,14 @@ let selector_at t i =
   Bitvector.extract_single t.selector i
   |> Boolean.of_single_bit_vector
 
-let model_selector t model =
-  Model.eval_exn model t.selector
+let model_selector_i ~length model selector =
+  Model.eval_exn model selector
   |> Bitvector.Numeral.to_binary_array_exn
   |> Array.findi ~f:(fun _i b -> b)
-  |> Option.map ~f:(fun (i, _) -> t.length - i - 1)
+  |> Option.map ~f:(fun (i, _) -> length - i - 1)
+
+let model_selector t model =
+  model_selector_i ~length:t.length model t.selector
 
 let constraints t =
   Boolean.and_list t.assertions

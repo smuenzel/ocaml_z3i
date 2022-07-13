@@ -679,6 +679,35 @@ and Bitvector : Bitvector
       to_binary_string_exn t
       |> String.to_array
       |> Array.map ~f:(Char.(=) '1')
+
+    let to_int_exn t =
+      if Stdlib.not (Expr.is_numeral t)
+      then raise_s [%message "not a numeral" (t : _ Expr.t)];
+      let ctx = Expr.context t in
+      let success, result =
+        Z3native.get_numeral_int
+          (Context.Native.to_native ctx)
+          (Expr.Native.to_native t)
+      in
+      if success
+      then result
+      else raise_s [%message "cannot fit in int" (t : _ Expr.t)]
+
+    let to_int64_signed_exn t =
+      let a = to_binary_array_exn t in
+      let length = Array.length a in
+      if length > 64
+      then raise_s [%message "cannot fit in int64" (t : _ Expr.t)] 
+      else begin
+        let sign = a.(0) in
+        Array.rev_inplace a;
+        let acc = ref 0L in
+        for i = 0 to 63 do
+          if (i >= length && sign) || (i < length && a.(i))
+          then acc := Int64.(!acc lor (1L lsl i)) 
+        done;
+        !acc
+      end
   end
 
 end

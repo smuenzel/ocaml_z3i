@@ -287,6 +287,8 @@ module type Bitvector = sig
 
     val to_binary_string_exn : t -> string
     val to_binary_array_exn : t -> bool array
+    val to_int_exn : t -> int
+    val to_int64_signed_exn : t -> int64
   end
 
 end
@@ -655,6 +657,7 @@ module type Mux = sig
   val constraints : t -> S.bool Expr.t
 
   val model_selector : t -> Model.t -> int option
+  val model_selector_i : length:int -> Model.t -> S.bv Expr.t -> int option
 end
 
 module type Symbol_builder = sig
