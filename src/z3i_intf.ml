@@ -247,6 +247,8 @@ module type Bitvector = sig
   val is_power_of_two : t -> S.bool Expr.t
   val is_power_of_two_or_zero : t -> S.bool Expr.t
   val is_add_overflow : signed:bool -> t -> t -> S.bool Expr.t
+  val is_add_underflow : t -> t -> S.bool Expr.t
+  val is_sub_overflow : t -> t -> S.bool Expr.t
   val is_sub_underflow : signed:bool -> t -> t -> S.bool Expr.t
 
   val sign : t -> t
