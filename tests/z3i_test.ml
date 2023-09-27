@@ -124,7 +124,7 @@ let%expect_test "parity" =
   Solver.check_current_and_get_model s
   |> [%sexp_of: Model.t Solver_result.t]
   |> print_s;
-  [%expect {| (Satisfiable ((define-fun k!0 () (_ BitVec 64) #x020c000000000000))) |}]
+  [%expect {| (Satisfiable ((define-fun k!0 () (_ BitVec 64) #x8120000000000000))) |}]
 
 let%expect_test "sign" =
   let open Z3i in
@@ -157,8 +157,8 @@ let%expect_test "add overflow" =
   |> print_s;
   [%expect {|
     (Satisfiable
-     ((define-fun k!0 () (_ BitVec 64) #x7ff5ffff07fe3ff5)
-      (define-fun k!1 () (_ BitVec 64) #x7f43ffff027ffc96))) |}]
+     ((define-fun k!0 () (_ BitVec 64) #x7ffffffffffedfdf)
+      (define-fun k!1 () (_ BitVec 64) #x6000000000033fc3))) |}]
 
 let%expect_test "simplify" =
   let open Z3i in
