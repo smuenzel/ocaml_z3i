@@ -1,0 +1,3 @@
+[submodule "vendor/typed_list"]
+	path = vendor/typed_list
+	url = git@github.com:smuenzel/typed_list
