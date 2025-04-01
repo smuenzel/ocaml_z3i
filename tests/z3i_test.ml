@@ -124,7 +124,7 @@ let%expect_test "parity" =
   Solver.check_current_and_get_model s
   |> [%sexp_of: Model.t Solver_result.t]
   |> print_s;
-  [%expect {| (Satisfiable ((define-fun k!0 () (_ BitVec 64) #x8120000000000000))) |}]
+  [%expect {| (Satisfiable ((define-fun k!0 () (_ BitVec 64) #x0802000000000001))) |}]
 
 let%expect_test "sign" =
   let open Z3i in

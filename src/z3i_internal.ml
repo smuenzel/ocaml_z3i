@@ -357,6 +357,7 @@ end
     | RE_SORT -> Obj.magic S.Re
     | CHAR_SORT -> Obj.magic S.Char
     | UNKNOWN_SORT -> Obj.magic S.Unknown
+    | TYPE_VAR -> Obj.magic (S.Datatype Other)
 
   let func_decl_domain t =
     let d = Z3.FuncDecl.get_domain (Function_declaration.to_raw t) in
