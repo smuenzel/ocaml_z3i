@@ -23,5 +23,6 @@
     ppx_expect
     ppx_jane
     higher_kinded
+    z3
     )
   (tags (z3i)))
