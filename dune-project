@@ -23,6 +23,6 @@
     ppx_expect
     ppx_jane
     higher_kinded
-    z3
+    (z3 (>= 4.15.1))
     )
   (tags (z3i)))
