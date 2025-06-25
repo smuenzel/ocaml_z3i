@@ -1,3 +1,7 @@
+(* SPDX-License-Identifier: MPL-2.0
+ * SPDX-FileCopyrightText: (c) 2022-2025 Stefan Muenzel
+ *)
+
 open Core
 open Z3i_internal
 

@@ -1,3 +1,7 @@
+(* SPDX-License-Identifier: MPL-2.0
+ * SPDX-FileCopyrightText: (c) 2022-2025 Stefan Muenzel
+ *)
+
 include Types_helper_intf.T
 
 module Make_raw(With_sort : With_sort) : With_raw with module With_sort := With_sort
