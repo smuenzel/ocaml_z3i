@@ -1134,11 +1134,32 @@ and Symbol : Symbol
     Z3native.context_of_symbol (Symbol.Native.to_native t)
     |> Context.Native.unsafe_of_native
 
+  module Kind = Symbol_kind
+
   module Native = struct
     let to_native = (Obj.magic : t -> Z3native.symbol)
     let to_native_list = (Obj.magic : t list -> Z3native.symbol list)
     let unsafe_of_native = (Obj.magic : Z3native.symbol -> t)
   end
+
+  module Contents = struct
+    type nonrec _ t = t
+
+    type packed = | T : _ t -> packed [@@unboxed]
+
+    let kind (type a) (t : a t) : a Kind.t =
+      match Z3.Symbol.kind t with
+      | INT_SYMBOL -> Obj.magic Symbol_kind.Int
+      | STRING_SYMBOL -> Obj.magic Symbol_kind.String
+
+    let value (type a) (t : a t) : a =
+      match (kind t : a Kind.t) with
+      | Int -> Z3.Symbol.get_int t
+      | String -> Z3.Symbol.get_string t
+
+  end
+
+  let contents t = Contents.T t
 end
 
 and Boolean : Boolean

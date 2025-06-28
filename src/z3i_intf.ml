@@ -77,6 +77,12 @@ module S = struct
     | TP : _ tuple_instance -> packed_tuple_instance [@@unboxed]
 end
 
+module Symbol_kind = struct
+  type _ t =
+    | Int : int t
+    | String : string t
+end
+
 module type Native = sig
   type t
   type native
@@ -441,6 +447,19 @@ module type Symbol = sig
 
   val of_int : Context.t -> int -> t
   val of_string : Context.t -> string -> t
+
+  module Kind = Symbol_kind
+
+  module Contents : sig
+    type _ t = private Symbol.t
+
+    type packed = | T : _ t -> packed [@@unboxed]
+
+    val kind : 'a t -> 'a Kind.t
+    val value : 'a t -> 'a
+  end
+
+  val contents : t -> Contents.packed
 
   module Native : Native with type t := t and type native := Z3native.symbol
 end
