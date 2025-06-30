@@ -1,3 +1,0 @@
-[submodule "vendor/typed_list"]
-	path = vendor/typed_list
-	url = https://github.com/engineeredabstraction/typed_list

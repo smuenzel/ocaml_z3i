@@ -23,6 +23,7 @@
     ppx_expect
     ppx_jane
     higher_kinded
+    typed_list
     (z3 (>= 4.15.1))
     )
   (tags (z3i)))
