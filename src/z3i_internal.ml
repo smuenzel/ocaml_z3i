@@ -576,7 +576,7 @@ and Bitvector : Bitvector
     let size = size_e expr in
     let result_bit_size = Option.value ~default:size result_bit_size in
     let context = Expr.context expr in
-    let acc_bit_size = Int.ceil_log2 size in
+    let acc_bit_size = 1 + Int.ceil_log2 size in
     assert (acc_bit_size <= result_bit_size);
     List.init size
       ~f:(fun i ->
@@ -1102,7 +1102,7 @@ and Optimize : Optimize
       |> Expr.Native.unsafe_of_native
   end
 
-  let add_soft t expr ~weight symbol =
+  let add_soft t (expr : Boolean.t) ~weight symbol =
     let index =
       Z3native.optimize_assert_soft
         (context t |> Context.Native.to_native)
@@ -1110,6 +1110,30 @@ and Optimize : Optimize
         (Expr.Native.to_native expr)
         (Int.to_string weight)
         (Symbol.Native.to_native symbol)
+    in
+    { Goal.
+      optimize = t
+    ; index
+    }
+
+  let maximize (type a) t (expr : a Expr.t) =
+    let index =
+      Z3native.optimize_maximize
+        (context t |> Context.Native.to_native)
+        (Optimize.Native.to_native t)
+        (Expr.Native.to_native expr)
+    in
+    { Goal.
+      optimize = t
+    ; index
+    }
+
+  let minimize (type a) t (expr : a Expr.t) =
+    let index =
+      Z3native.optimize_minimize
+        (context t |> Context.Native.to_native)
+        (Optimize.Native.to_native t)
+        (Expr.Native.to_native expr)
     in
     { Goal.
       optimize = t

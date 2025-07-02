@@ -434,8 +434,10 @@ module type Optimize = sig
     val upper : 's t -> 's Expr.t
   end
 
-  val add_soft : t -> 's Expr.t -> weight:int -> Symbol.t -> 's Goal.t
+  val add_soft : t -> S.bool Expr.t -> weight:int -> Symbol.t -> 's Goal.t
 
+  val maximize : t -> 's Expr.t -> 's Goal.t
+  val minimize : t -> 's Expr.t -> 's Goal.t
 end
 
 module type Symbol = sig

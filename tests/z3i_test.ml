@@ -117,18 +117,21 @@ let%expect_test "shift_left" =
 let%expect_test "parity" =
   let open Z3i in
   let c = Context.create () in
-  let s = Solver.create c in
+  let s = Optimize.create c in
   let length = 64 in
   let sort = Bitvector.create_sort c ~bits:length in
   let value = Expr.const_i 0 sort in
   [ Boolean.eq (Bitvector.parity value) (Bitvector.Numeral.bit1 c)
-  ; Boolean.eq (Bitvector.popcount value) (Bitvector.Numeral.int sort 3)
+  ; Bitvector.Unsigned.(<=) (Bitvector.popcount value) (Bitvector.Numeral.int sort 16)
   ]
-  |> Solver.add_list s;
-  Solver.check_current_and_get_model s
+  |> Optimize.add_list s;
+  let (_ : _ Optimize.Goal.t) =
+    Optimize.maximize s value
+  in
+  Optimize.check_current_and_get_model s
   |> [%sexp_of: Model.t Solver_result.t]
   |> print_s;
-  [%expect {| (Satisfiable ((define-fun k!0 () (_ BitVec 64) #x0802000000000001))) |}]
+  [%expect {| (Satisfiable ((define-fun k!0 () (_ BitVec 64) #xfffe000000000000))) |}]
 
 let%expect_test "sign" =
   let open Z3i in
@@ -148,21 +151,21 @@ let%expect_test "sign" =
 let%expect_test "add overflow" =
   let open Z3i in
   let c = Context.create () in
-  let s = Solver.create c in
+  let s = Optimize.create c in
   let length = 64 in
   let sort = Bitvector.create_sort c ~bits:length in
-  let value0 = Expr.const_i 0 sort in
+  let value0 = Bitvector.Numeral.int sort 255 in
   let value1 = Expr.const_i 1 sort in
   [ Bitvector.is_add_overflow ~signed:true value0 value1
   ]
-  |> Solver.add_list s;
-  Solver.check_current_and_get_model s
+  |> Optimize.add_list s;
+  let (_ : _ Optimize.Goal.t) =
+    Optimize.minimize s value1
+  in
+  Optimize.check_current_and_get_model s
   |> [%sexp_of: Model.t Solver_result.t]
   |> print_s;
-  [%expect {|
-    (Satisfiable
-     ((define-fun k!0 () (_ BitVec 64) #x7ffffffffffedfdf)
-      (define-fun k!1 () (_ BitVec 64) #x6000000000033fc3))) |}]
+  [%expect {| (Satisfiable ((define-fun k!1 () (_ BitVec 64) #x7fffffffffffff01))) |}]
 
 let%expect_test "simplify" =
   let open Z3i in
